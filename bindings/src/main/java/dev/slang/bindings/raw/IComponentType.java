@@ -151,7 +151,16 @@ public class IComponentType extends ISlangUnknown {
         try {
             int result = (int) getHandle(SLOT_SPECIALIZE, DESC_SPECIALIZE)
                 .invokeExact(self, specializationArgs, argCount, outSpecialized, outDiag);
-            SlangResult.check(result, "IComponentType::specialize");
+            if (result < 0) {
+                MemorySegment diagPtr = outDiag.get(ValueLayout.ADDRESS, 0);
+                String diagMsg = "";
+                if (!diagPtr.equals(MemorySegment.NULL)) {
+                    ISlangBlob diagBlob = new ISlangBlob(diagPtr);
+                    diagMsg = new String(diagBlob.toByteArray());
+                    diagBlob.release();
+                }
+                SlangResult.check(result, "IComponentType::specialize: " + diagMsg);
+            }
             return new IComponentType(outSpecialized.get(ValueLayout.ADDRESS, 0));
         } catch (RuntimeException e) { throw e;
         } catch (Throwable t) { throw new RuntimeException("specialize failed", t); }

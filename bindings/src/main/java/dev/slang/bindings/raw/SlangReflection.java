@@ -35,6 +35,17 @@ public final class SlangReflection {
         "spReflection_getEntryPointByIndex",
         FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.JAVA_INT));
 
+    private static final MethodHandle FIND_TYPE_BY_NAME = downcall(
+        "spReflection_FindTypeByName",
+        FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.ADDRESS));
+
+    public static MemorySegment findTypeByName(MemorySegment programLayout, Arena arena, String name) {
+        MemorySegment nameStr = arena.allocateUtf8String(name);
+        try {
+            return (MemorySegment) FIND_TYPE_BY_NAME.invokeExact(programLayout, nameStr);
+        } catch (Throwable t) { throw new RuntimeException("findTypeByName failed", t); }
+    }
+
     public static int getParameterCount(MemorySegment programLayout) {
         try {
             return (int) GET_PARAMETER_COUNT.invokeExact(programLayout);
