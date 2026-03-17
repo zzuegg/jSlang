@@ -31,6 +31,16 @@ public class ComponentType implements AutoCloseable {
         }
     }
 
+    public long getSpecializationParamCount() {
+        return raw.getSpecializationParamCount();
+    }
+
+    public ComponentType renameEntryPoint(String newName) {
+        try (Arena arena = Arena.ofConfined()) {
+            return new ComponentType(raw.renameEntryPoint(arena, newName));
+        }
+    }
+
     public IComponentType raw() { return raw; }
 
     @Override
