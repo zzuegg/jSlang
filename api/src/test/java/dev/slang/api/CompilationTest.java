@@ -16,7 +16,7 @@ class CompilationTest {
         """;
 
     @Test
-    void compileToSpirv() {
+    void compileToSpirv() throws Exception {
         var global = GlobalSession.create();
         int profile = global.findProfile("spirv_1_5");
 
@@ -50,7 +50,7 @@ class CompilationTest {
     }
 
     @Test
-    void compileToGLSL() {
+    void compileToGLSL() throws Exception {
         var global = GlobalSession.create();
 
         var session = global.createSession(
@@ -77,14 +77,14 @@ class CompilationTest {
     }
 
     @Test
-    void invalidShaderThrows() {
+    void invalidShaderThrows() throws Exception {
         var global = GlobalSession.create();
 
         var session = global.createSession(
             new SessionDescBuilder().addTarget(
                 new TargetDescBuilder().format(CompileTarget.SPIRV)));
 
-        assertThrows(RuntimeException.class, () -> {
+        assertThrows(SlangException.class, () -> {
             session.loadModuleFromSourceString(
                 "bad", "bad.slang", "this is not valid slang code!!!");
         });

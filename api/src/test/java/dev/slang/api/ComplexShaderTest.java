@@ -95,7 +95,7 @@ class ComplexShaderTest {
         """;
 
     @Test
-    void compileParticleComputeToSpirv() {
+    void compileParticleComputeToSpirv() throws Exception {
         var global = GlobalSession.create();
         int profile = global.findProfile("spirv_1_5");
 
@@ -132,7 +132,7 @@ class ComplexShaderTest {
     }
 
     @Test
-    void compileParticleComputeToHLSL() {
+    void compileParticleComputeToHLSL() throws Exception {
         var global = GlobalSession.create();
         var session = global.createSession(
             new SessionDescBuilder().addTarget(
@@ -161,7 +161,7 @@ class ComplexShaderTest {
     }
 
     @Test
-    void compileVertexFragmentToSpirv() {
+    void compileVertexFragmentToSpirv() throws Exception {
         var global = GlobalSession.create();
         int profile = global.findProfile("spirv_1_5");
 
@@ -212,7 +212,7 @@ class ComplexShaderTest {
     }
 
     @Test
-    void compileVertexFragmentToGLSL() {
+    void compileVertexFragmentToGLSL() throws Exception {
         var global = GlobalSession.create();
         var session = global.createSession(
             new SessionDescBuilder().addTarget(

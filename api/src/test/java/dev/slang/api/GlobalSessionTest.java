@@ -6,7 +6,7 @@ import static org.junit.jupiter.api.Assertions.*;
 class GlobalSessionTest {
 
     @Test
-    void createAndGetBuildTag() {
+    void createAndGetBuildTag() throws Exception {
         try (var global = GlobalSession.create()) {
             String tag = global.getBuildTagString();
             assertNotNull(tag);
@@ -16,7 +16,7 @@ class GlobalSessionTest {
     }
 
     @Test
-    void findProfile() {
+    void findProfile() throws Exception {
         try (var global = GlobalSession.create()) {
             int spirv = global.findProfile("spirv_1_5");
             assertTrue(spirv >= 0);

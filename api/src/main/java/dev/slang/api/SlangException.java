@@ -8,5 +8,10 @@ public class SlangException extends Exception {
         this.resultCode = resultCode;
     }
 
+    public SlangException(String message, Throwable cause) {
+        super(message, cause);
+        this.resultCode = Integer.MIN_VALUE;
+    }
+
     public int getResultCode() { return resultCode; }
 }

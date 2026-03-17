@@ -16,12 +16,14 @@ public class GlobalSession implements AutoCloseable {
         return new GlobalSession(IGlobalSession.create());
     }
 
-    public Session createSession(SessionDescBuilder builder) {
+    public Session createSession(SessionDescBuilder builder) throws SlangException {
         try (Arena arena = Arena.ofConfined()) {
             MemorySegment sessionDesc = builder.build(arena);
             MemorySegment outSession = arena.allocate(ValueLayout.ADDRESS);
             raw.createSessionRaw(sessionDesc, outSession);
             return new Session(new ISession(outSession.get(ValueLayout.ADDRESS, 0)));
+        } catch (RuntimeException e) {
+            throw new SlangException(e.getMessage(), e);
         }
     }
 

@@ -21,7 +21,7 @@ class SessionConfigTest {
         """;
 
     @Test
-    void preprocessorMacroAffectsOutput() {
+    void preprocessorMacroAffectsOutput() throws Exception {
         var global = GlobalSession.create();
 
         // Compile WITH macro
@@ -74,7 +74,7 @@ class SessionConfigTest {
     }
 
     @Test
-    void flagsCanBeSet() {
+    void flagsCanBeSet() throws Exception {
         var global = GlobalSession.create();
 
         var session = global.createSession(

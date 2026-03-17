@@ -46,7 +46,7 @@ class LayoutReflectionTest {
         """;
 
     @Test
-    void queryBindingOffsetsAndSpaces() {
+    void queryBindingOffsetsAndSpaces() throws Exception {
         var global = GlobalSession.create();
         int profile = global.findProfile("spirv_1_5");
 
@@ -175,7 +175,7 @@ class LayoutReflectionTest {
     }
 
     @Test
-    void queryVaryingInputSemantics() {
+    void queryVaryingInputSemantics() throws Exception {
         var global = GlobalSession.create();
         int profile = global.findProfile("spirv_1_5");
 

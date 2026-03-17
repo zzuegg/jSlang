@@ -85,7 +85,7 @@ class ReflectionTest {
         """;
 
     @Test
-    void reflectComputeShaderParameters() {
+    void reflectComputeShaderParameters() throws Exception {
         var global = GlobalSession.create();
         int profile = global.findProfile("spirv_1_5");
 
@@ -161,7 +161,7 @@ class ReflectionTest {
     }
 
     @Test
-    void reflectVertexFragmentParameters() {
+    void reflectVertexFragmentParameters() throws Exception {
         var global = GlobalSession.create();
         int profile = global.findProfile("spirv_1_5");
 
@@ -234,7 +234,7 @@ class ReflectionTest {
     }
 
     @Test
-    void reflectStructFields() {
+    void reflectStructFields() throws Exception {
         var global = GlobalSession.create();
         int profile = global.findProfile("spirv_1_5");
 

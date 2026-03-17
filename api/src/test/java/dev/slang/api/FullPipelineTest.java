@@ -46,7 +46,7 @@ class FullPipelineTest {
         """;
 
     @Test
-    void fullPipelineSpirvAndHlslAndGlsl() {
+    void fullPipelineSpirvAndHlslAndGlsl() throws Exception {
         System.out.println("================================================================================");
         System.out.println("  SLANG INPUT");
         System.out.println("================================================================================");

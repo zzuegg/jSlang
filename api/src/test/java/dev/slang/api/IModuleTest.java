@@ -19,7 +19,7 @@ class IModuleTest {
         void main2(uint3 tid : SV_DispatchThreadID) {}
         """;
 
-    private Session createSession(GlobalSession global) {
+    private Session createSession(GlobalSession global) throws SlangException {
         int profile = global.findProfile("spirv_1_5");
         return global.createSession(
             new SessionDescBuilder().addTarget(
@@ -29,7 +29,7 @@ class IModuleTest {
     }
 
     @Test
-    void getDefinedEntryPoints() {
+    void getDefinedEntryPoints() throws Exception {
         var global = GlobalSession.create();
         var session = createSession(global);
 
@@ -49,7 +49,7 @@ class IModuleTest {
     }
 
     @Test
-    void moduleNameAndIdentity() {
+    void moduleNameAndIdentity() throws Exception {
         var global = GlobalSession.create();
         var session = createSession(global);
 
@@ -67,7 +67,7 @@ class IModuleTest {
     }
 
     @Test
-    void disassemble() {
+    void disassemble() throws Exception {
         var global = GlobalSession.create();
         var session = createSession(global);
 
@@ -85,7 +85,7 @@ class IModuleTest {
     }
 
     @Test
-    void serialize() {
+    void serialize() throws Exception {
         var global = GlobalSession.create();
         var session = createSession(global);
 

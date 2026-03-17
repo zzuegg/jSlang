@@ -13,16 +13,20 @@ public class Module extends ComponentType {
         this.rawModule = raw;
     }
 
-    public EntryPoint findEntryPoint(String name) {
+    public EntryPoint findEntryPoint(String name) throws SlangException {
         try (Arena arena = Arena.ofConfined()) {
             return new EntryPoint(rawModule.findEntryPointByName(arena, name));
+        } catch (RuntimeException e) {
+            throw new SlangException(e.getMessage(), e);
         }
     }
 
-    public EntryPoint findAndCheckEntryPoint(String name, Stage stage) {
+    public EntryPoint findAndCheckEntryPoint(String name, Stage stage) throws SlangException {
         try (Arena arena = Arena.ofConfined()) {
             return new EntryPoint(
                 rawModule.findAndCheckEntryPoint(arena, name, stage.value()));
+        } catch (RuntimeException e) {
+            throw new SlangException(e.getMessage(), e);
         }
     }
 
@@ -40,7 +44,7 @@ public class Module extends ComponentType {
         }
     }
 
-    public byte[] serialize() {
+    public byte[] serialize() throws SlangException {
         try (Arena arena = Arena.ofConfined()) {
             ISlangBlob blob = rawModule.serialize(arena);
             try {
@@ -48,12 +52,16 @@ public class Module extends ComponentType {
             } finally {
                 blob.close();
             }
+        } catch (RuntimeException e) {
+            throw new SlangException(e.getMessage(), e);
         }
     }
 
-    public void writeToFile(String fileName) {
+    public void writeToFile(String fileName) throws SlangException {
         try (Arena arena = Arena.ofConfined()) {
             rawModule.writeToFile(arena, fileName);
+        } catch (RuntimeException e) {
+            throw new SlangException(e.getMessage(), e);
         }
     }
 
@@ -73,7 +81,7 @@ public class Module extends ComponentType {
         return rawModule.getDependencyFilePath(index);
     }
 
-    public String disassemble() {
+    public String disassemble() throws SlangException {
         try (Arena arena = Arena.ofConfined()) {
             ISlangBlob blob = rawModule.disassemble(arena);
             try {
@@ -81,6 +89,8 @@ public class Module extends ComponentType {
             } finally {
                 blob.close();
             }
+        } catch (RuntimeException e) {
+            throw new SlangException(e.getMessage(), e);
         }
     }
 }

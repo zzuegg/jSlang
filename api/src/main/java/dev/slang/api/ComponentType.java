@@ -11,23 +11,29 @@ public class ComponentType implements AutoCloseable {
         this.raw = raw;
     }
 
-    public ComponentType link() {
+    public ComponentType link() throws SlangException {
         try (Arena arena = Arena.ofConfined()) {
             return new ComponentType(raw.link(arena));
+        } catch (RuntimeException e) {
+            throw new SlangException(e.getMessage(), e);
         }
     }
 
-    public Blob getEntryPointCode(int entryPointIndex, int targetIndex) {
+    public Blob getEntryPointCode(int entryPointIndex, int targetIndex) throws SlangException {
         try (Arena arena = Arena.ofConfined()) {
             ISlangBlob blob = raw.getEntryPointCode(arena, entryPointIndex, targetIndex);
             return new Blob(blob);
+        } catch (RuntimeException e) {
+            throw new SlangException(e.getMessage(), e);
         }
     }
 
-    public Blob getTargetCode(int targetIndex) {
+    public Blob getTargetCode(int targetIndex) throws SlangException {
         try (Arena arena = Arena.ofConfined()) {
             ISlangBlob blob = raw.getTargetCode(arena, targetIndex);
             return new Blob(blob);
+        } catch (RuntimeException e) {
+            throw new SlangException(e.getMessage(), e);
         }
     }
 
@@ -35,9 +41,11 @@ public class ComponentType implements AutoCloseable {
         return raw.getSpecializationParamCount();
     }
 
-    public ComponentType renameEntryPoint(String newName) {
+    public ComponentType renameEntryPoint(String newName) throws SlangException {
         try (Arena arena = Arena.ofConfined()) {
             return new ComponentType(raw.renameEntryPoint(arena, newName));
+        } catch (RuntimeException e) {
+            throw new SlangException(e.getMessage(), e);
         }
     }
 

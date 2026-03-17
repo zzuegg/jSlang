@@ -11,15 +11,19 @@ public class Session implements AutoCloseable {
         this.raw = raw;
     }
 
-    public Module loadModule(String moduleName) {
+    public Module loadModule(String moduleName) throws SlangException {
         try (Arena arena = Arena.ofConfined()) {
             return new Module(raw.loadModule(arena, moduleName));
+        } catch (RuntimeException e) {
+            throw new SlangException(e.getMessage(), e);
         }
     }
 
-    public Module loadModuleFromSourceString(String moduleName, String path, String source) {
+    public Module loadModuleFromSourceString(String moduleName, String path, String source) throws SlangException {
         try (Arena arena = Arena.ofConfined()) {
             return new Module(raw.loadModuleFromSourceString(arena, moduleName, path, source));
+        } catch (RuntimeException e) {
+            throw new SlangException(e.getMessage(), e);
         }
     }
 
@@ -31,13 +35,15 @@ public class Session implements AutoCloseable {
         return new Module(raw.getLoadedModule(index));
     }
 
-    public ComponentType createCompositeComponentType(ComponentType... components) {
+    public ComponentType createCompositeComponentType(ComponentType... components) throws SlangException {
         try (Arena arena = Arena.ofConfined()) {
             IComponentType[] rawComponents = new IComponentType[components.length];
             for (int i = 0; i < components.length; i++) {
                 rawComponents[i] = components[i].raw();
             }
             return new ComponentType(raw.createCompositeComponentType(arena, rawComponents));
+        } catch (RuntimeException e) {
+            throw new SlangException(e.getMessage(), e);
         }
     }
 
