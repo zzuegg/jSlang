@@ -1,5 +1,6 @@
 package dev.slang.api;
 
+import dev.slang.bindings.enums.CompileTarget;
 import dev.slang.bindings.raw.IGlobalSession;
 import dev.slang.bindings.raw.ISession;
 import java.lang.foreign.*;
@@ -32,6 +33,26 @@ public class GlobalSession implements AutoCloseable {
 
     public String getBuildTagString() {
         return raw.getBuildTagString();
+    }
+
+    public boolean isCompileTargetSupported(CompileTarget target) {
+        return raw.checkCompileTargetSupport(target.value());
+    }
+
+    public boolean isPassThroughSupported(int passThrough) {
+        return raw.checkPassThroughSupport(passThrough);
+    }
+
+    public double[] getCompilerElapsedTime() {
+        try (Arena arena = Arena.ofConfined()) {
+            return raw.getCompilerElapsedTime(arena);
+        }
+    }
+
+    public void setLanguagePrelude(int sourceLanguage, String prelude) {
+        try (Arena arena = Arena.ofConfined()) {
+            raw.setLanguagePrelude(arena, sourceLanguage, prelude);
+        }
     }
 
     @Override
