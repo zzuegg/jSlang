@@ -9,10 +9,23 @@ public class ISession extends ISlangUnknown {
     private static final int SLOT_LOAD_MODULE = 4;
     private static final int SLOT_LOAD_MODULE_FROM_SOURCE = 5;
     private static final int SLOT_CREATE_COMPOSITE_COMPONENT_TYPE = 6;
+    private static final int SLOT_SPECIALIZE_TYPE = 7;
+    private static final int SLOT_GET_TYPE_LAYOUT = 8;
+    private static final int SLOT_GET_CONTAINER_TYPE = 9;
+    private static final int SLOT_GET_DYNAMIC_TYPE = 10;
+    private static final int SLOT_GET_TYPE_RTTI_MANGLED_NAME = 11;
+    private static final int SLOT_GET_TYPE_CONFORMANCE_WITNESS_MANGLED_NAME = 12;
+    private static final int SLOT_GET_TYPE_CONFORMANCE_WITNESS_SEQUENTIAL_ID = 13;
+    private static final int SLOT_CREATE_COMPILE_REQUEST = 14;
+    private static final int SLOT_CREATE_TYPE_CONFORMANCE_COMPONENT_TYPE = 15;
+    private static final int SLOT_LOAD_MODULE_FROM_IR_BLOB = 16;
     private static final int SLOT_GET_LOADED_MODULE_COUNT = 17;
     private static final int SLOT_GET_LOADED_MODULE = 18;
     private static final int SLOT_IS_BINARY_MODULE_UP_TO_DATE = 19;
     private static final int SLOT_LOAD_MODULE_FROM_SOURCE_STRING = 20;
+    private static final int SLOT_GET_DYNAMIC_OBJECT_RTTI_BYTES = 21;
+    private static final int SLOT_LOAD_MODULE_INFO_FROM_IR_BLOB = 22;
+    private static final int SLOT_GET_DECL_SOURCE_LOCATION = 23;
 
     private static final FunctionDescriptor DESC_GET_GLOBAL_SESSION =
         FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.ADDRESS);
@@ -46,6 +59,66 @@ public class ISession extends ISlangUnknown {
         FunctionDescriptor.of(ValueLayout.ADDRESS,
             ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.ADDRESS,
             ValueLayout.ADDRESS, ValueLayout.ADDRESS);
+
+    private static final FunctionDescriptor DESC_SPECIALIZE_TYPE =
+        FunctionDescriptor.of(ValueLayout.ADDRESS,
+            ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.ADDRESS,
+            ValueLayout.JAVA_LONG, ValueLayout.ADDRESS);
+
+    private static final FunctionDescriptor DESC_GET_TYPE_LAYOUT =
+        FunctionDescriptor.of(ValueLayout.ADDRESS,
+            ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG,
+            ValueLayout.JAVA_INT, ValueLayout.ADDRESS);
+
+    private static final FunctionDescriptor DESC_GET_CONTAINER_TYPE =
+        FunctionDescriptor.of(ValueLayout.ADDRESS,
+            ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.JAVA_INT,
+            ValueLayout.ADDRESS);
+
+    private static final FunctionDescriptor DESC_GET_DYNAMIC_TYPE =
+        FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.ADDRESS);
+
+    private static final FunctionDescriptor DESC_GET_TYPE_RTTI_MANGLED_NAME =
+        FunctionDescriptor.of(ValueLayout.JAVA_INT,
+            ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.ADDRESS);
+
+    private static final FunctionDescriptor DESC_GET_TYPE_CONFORMANCE_WITNESS_MANGLED_NAME =
+        FunctionDescriptor.of(ValueLayout.JAVA_INT,
+            ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.ADDRESS,
+            ValueLayout.ADDRESS);
+
+    private static final FunctionDescriptor DESC_GET_TYPE_CONFORMANCE_WITNESS_SEQUENTIAL_ID =
+        FunctionDescriptor.of(ValueLayout.JAVA_INT,
+            ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.ADDRESS,
+            ValueLayout.ADDRESS);
+
+    private static final FunctionDescriptor DESC_CREATE_COMPILE_REQUEST =
+        FunctionDescriptor.of(ValueLayout.JAVA_INT,
+            ValueLayout.ADDRESS, ValueLayout.ADDRESS);
+
+    private static final FunctionDescriptor DESC_CREATE_TYPE_CONFORMANCE_COMPONENT_TYPE =
+        FunctionDescriptor.of(ValueLayout.JAVA_INT,
+            ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.ADDRESS,
+            ValueLayout.ADDRESS, ValueLayout.JAVA_LONG, ValueLayout.ADDRESS);
+
+    private static final FunctionDescriptor DESC_LOAD_MODULE_FROM_IR_BLOB =
+        FunctionDescriptor.of(ValueLayout.ADDRESS,
+            ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.ADDRESS,
+            ValueLayout.ADDRESS, ValueLayout.ADDRESS);
+
+    private static final FunctionDescriptor DESC_GET_DYNAMIC_OBJECT_RTTI_BYTES =
+        FunctionDescriptor.of(ValueLayout.JAVA_INT,
+            ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.ADDRESS,
+            ValueLayout.ADDRESS, ValueLayout.JAVA_INT);
+
+    private static final FunctionDescriptor DESC_LOAD_MODULE_INFO_FROM_IR_BLOB =
+        FunctionDescriptor.of(ValueLayout.JAVA_INT,
+            ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.ADDRESS,
+            ValueLayout.ADDRESS);
+
+    private static final FunctionDescriptor DESC_GET_DECL_SOURCE_LOCATION =
+        FunctionDescriptor.of(ValueLayout.JAVA_INT,
+            ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.ADDRESS);
 
     public ISession(MemorySegment self) {
         super(self);
@@ -158,5 +231,164 @@ public class ISession extends ISlangUnknown {
             return new IComponentType(outComposite.get(ValueLayout.ADDRESS, 0));
         } catch (RuntimeException e) { throw e;
         } catch (Throwable t) { throw new RuntimeException("createCompositeComponentType failed", t); }
+    }
+
+    public MemorySegment specializeType(Arena arena, MemorySegment type, MemorySegment specializationArgs, long argCount) {
+        MemorySegment outDiag = arena.allocate(ValueLayout.ADDRESS);
+        try {
+            MemorySegment result = (MemorySegment)
+                getHandle(SLOT_SPECIALIZE_TYPE, DESC_SPECIALIZE_TYPE)
+                    .invokeExact(self, type, specializationArgs, argCount, outDiag);
+            return result;
+        } catch (Throwable t) { throw new RuntimeException("specializeType failed", t); }
+    }
+
+    public MemorySegment getTypeLayout(Arena arena, MemorySegment type, long targetIndex, int rules) {
+        MemorySegment outDiag = arena.allocate(ValueLayout.ADDRESS);
+        try {
+            MemorySegment result = (MemorySegment)
+                getHandle(SLOT_GET_TYPE_LAYOUT, DESC_GET_TYPE_LAYOUT)
+                    .invokeExact(self, type, targetIndex, rules, outDiag);
+            return result;
+        } catch (Throwable t) { throw new RuntimeException("getTypeLayout failed", t); }
+    }
+
+    public MemorySegment getContainerType(Arena arena, MemorySegment type, int containerType) {
+        MemorySegment outDiag = arena.allocate(ValueLayout.ADDRESS);
+        try {
+            MemorySegment result = (MemorySegment)
+                getHandle(SLOT_GET_CONTAINER_TYPE, DESC_GET_CONTAINER_TYPE)
+                    .invokeExact(self, type, containerType, outDiag);
+            return result;
+        } catch (Throwable t) { throw new RuntimeException("getContainerType failed", t); }
+    }
+
+    public MemorySegment getDynamicType() {
+        try {
+            return (MemorySegment) getHandle(SLOT_GET_DYNAMIC_TYPE, DESC_GET_DYNAMIC_TYPE)
+                .invokeExact(self);
+        } catch (Throwable t) { throw new RuntimeException("getDynamicType failed", t); }
+    }
+
+    public String getTypeRTTIMangledName(Arena arena, MemorySegment type) {
+        MemorySegment outBlob = arena.allocate(ValueLayout.ADDRESS);
+        try {
+            int result = (int) getHandle(SLOT_GET_TYPE_RTTI_MANGLED_NAME, DESC_GET_TYPE_RTTI_MANGLED_NAME)
+                .invokeExact(self, type, outBlob);
+            SlangResult.check(result, "getTypeRTTIMangledName");
+            MemorySegment blobPtr = outBlob.get(ValueLayout.ADDRESS, 0);
+            if (blobPtr.equals(MemorySegment.NULL)) return null;
+            ISlangBlob blob = new ISlangBlob(blobPtr);
+            try {
+                return new String(blob.toByteArray());
+            } finally { blob.release(); }
+        } catch (RuntimeException e) { throw e;
+        } catch (Throwable t) { throw new RuntimeException("getTypeRTTIMangledName failed", t); }
+    }
+
+    public String getTypeConformanceWitnessMangledName(Arena arena, MemorySegment type, MemorySegment interfaceType) {
+        MemorySegment outBlob = arena.allocate(ValueLayout.ADDRESS);
+        try {
+            int result = (int)
+                getHandle(SLOT_GET_TYPE_CONFORMANCE_WITNESS_MANGLED_NAME, DESC_GET_TYPE_CONFORMANCE_WITNESS_MANGLED_NAME)
+                    .invokeExact(self, type, interfaceType, outBlob);
+            SlangResult.check(result, "getTypeConformanceWitnessMangledName");
+            MemorySegment blobPtr = outBlob.get(ValueLayout.ADDRESS, 0);
+            if (blobPtr.equals(MemorySegment.NULL)) return null;
+            ISlangBlob blob = new ISlangBlob(blobPtr);
+            try {
+                return new String(blob.toByteArray());
+            } finally { blob.release(); }
+        } catch (RuntimeException e) { throw e;
+        } catch (Throwable t) { throw new RuntimeException("getTypeConformanceWitnessMangledName failed", t); }
+    }
+
+    public int getTypeConformanceWitnessSequentialID(Arena arena, MemorySegment type, MemorySegment interfaceType) {
+        MemorySegment outId = arena.allocate(ValueLayout.JAVA_INT);
+        try {
+            int result = (int)
+                getHandle(SLOT_GET_TYPE_CONFORMANCE_WITNESS_SEQUENTIAL_ID, DESC_GET_TYPE_CONFORMANCE_WITNESS_SEQUENTIAL_ID)
+                    .invokeExact(self, type, interfaceType, outId);
+            SlangResult.check(result, "getTypeConformanceWitnessSequentialID");
+            return outId.get(ValueLayout.JAVA_INT, 0);
+        } catch (RuntimeException e) { throw e;
+        } catch (Throwable t) { throw new RuntimeException("getTypeConformanceWitnessSequentialID failed", t); }
+    }
+
+    public MemorySegment createCompileRequest(Arena arena) {
+        MemorySegment outRequest = arena.allocate(ValueLayout.ADDRESS);
+        try {
+            int result = (int) getHandle(SLOT_CREATE_COMPILE_REQUEST, DESC_CREATE_COMPILE_REQUEST)
+                .invokeExact(self, outRequest);
+            SlangResult.check(result, "createCompileRequest");
+            return outRequest.get(ValueLayout.ADDRESS, 0);
+        } catch (RuntimeException e) { throw e;
+        } catch (Throwable t) { throw new RuntimeException("createCompileRequest failed", t); }
+    }
+
+    public IComponentType createTypeConformanceComponentType(Arena arena, MemorySegment type,
+            MemorySegment interfaceType, long conformanceIdOverride) {
+        MemorySegment outComponent = arena.allocate(ValueLayout.ADDRESS);
+        MemorySegment outDiag = arena.allocate(ValueLayout.ADDRESS);
+        try {
+            int result = (int)
+                getHandle(SLOT_CREATE_TYPE_CONFORMANCE_COMPONENT_TYPE, DESC_CREATE_TYPE_CONFORMANCE_COMPONENT_TYPE)
+                    .invokeExact(self, type, interfaceType, outComponent, conformanceIdOverride, outDiag);
+            SlangResult.check(result, "createTypeConformanceComponentType");
+            return new IComponentType(outComponent.get(ValueLayout.ADDRESS, 0));
+        } catch (RuntimeException e) { throw e;
+        } catch (Throwable t) { throw new RuntimeException("createTypeConformanceComponentType failed", t); }
+    }
+
+    public IModule loadModuleFromIRBlob(Arena arena, String name, String path, ISlangBlob source) {
+        MemorySegment nameStr = arena.allocateUtf8String(name);
+        MemorySegment pathStr = arena.allocateUtf8String(path);
+        MemorySegment outDiag = arena.allocate(ValueLayout.ADDRESS);
+        try {
+            MemorySegment modulePtr = (MemorySegment)
+                getHandle(SLOT_LOAD_MODULE_FROM_IR_BLOB, DESC_LOAD_MODULE_FROM_IR_BLOB)
+                    .invokeExact(self, nameStr, pathStr, source.ptr(), outDiag);
+            if (modulePtr.equals(MemorySegment.NULL)) {
+                MemorySegment diagPtr = outDiag.get(ValueLayout.ADDRESS, 0);
+                String diagMsg = "";
+                if (!diagPtr.equals(MemorySegment.NULL)) {
+                    ISlangBlob diagBlob = new ISlangBlob(diagPtr);
+                    diagMsg = new String(diagBlob.toByteArray());
+                    diagBlob.release();
+                }
+                throw new RuntimeException("loadModuleFromIRBlob failed: " + diagMsg);
+            }
+            return new IModule(modulePtr);
+        } catch (RuntimeException e) { throw e;
+        } catch (Throwable t) { throw new RuntimeException("loadModuleFromIRBlob failed", t); }
+    }
+
+    public int getDynamicObjectRTTIBytes(Arena arena, MemorySegment type, MemorySegment interfaceType, int outSize) {
+        try {
+            return (int) getHandle(SLOT_GET_DYNAMIC_OBJECT_RTTI_BYTES, DESC_GET_DYNAMIC_OBJECT_RTTI_BYTES)
+                .invokeExact(self, type, interfaceType, MemorySegment.NULL, outSize);
+        } catch (Throwable t) { throw new RuntimeException("getDynamicObjectRTTIBytes failed", t); }
+    }
+
+    public void loadModuleInfoFromIRBlob(Arena arena, String moduleName, ISlangBlob source) {
+        MemorySegment nameStr = arena.allocateUtf8String(moduleName);
+        MemorySegment outDiag = arena.allocate(ValueLayout.ADDRESS);
+        try {
+            int result = (int)
+                getHandle(SLOT_LOAD_MODULE_INFO_FROM_IR_BLOB, DESC_LOAD_MODULE_INFO_FROM_IR_BLOB)
+                    .invokeExact(self, nameStr, source.ptr(), outDiag);
+            SlangResult.check(result, "loadModuleInfoFromIRBlob");
+        } catch (RuntimeException e) { throw e;
+        } catch (Throwable t) { throw new RuntimeException("loadModuleInfoFromIRBlob failed", t); }
+    }
+
+    public void getDeclSourceLocation(Arena arena, MemorySegment decl, MemorySegment outLocation) {
+        try {
+            int result = (int)
+                getHandle(SLOT_GET_DECL_SOURCE_LOCATION, DESC_GET_DECL_SOURCE_LOCATION)
+                    .invokeExact(self, decl, outLocation);
+            SlangResult.check(result, "getDeclSourceLocation");
+        } catch (RuntimeException e) { throw e;
+        } catch (Throwable t) { throw new RuntimeException("getDeclSourceLocation failed", t); }
     }
 }

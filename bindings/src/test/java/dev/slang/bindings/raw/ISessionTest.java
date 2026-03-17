@@ -27,6 +27,22 @@ class ISessionTest {
         }
         """;
 
+    private static final String SHADER_WITH_STRUCT = """
+        struct MyData {
+            float4 position;
+            float4 color;
+        };
+
+        ParameterBlock<MyData> gData;
+
+        [shader("compute")]
+        [numthreads(1, 1, 1)]
+        void main(uint3 tid : SV_DispatchThreadID)
+        {
+            float4 p = gData.position;
+        }
+        """;
+
     private ISession createSession(Arena arena, IGlobalSession globalSession) {
         int profileId = globalSession.findProfile(arena, "spirv_1_5");
         MemorySegment targetDesc = TargetDesc.allocate(arena, CompileTarget.SPIRV, profileId);
@@ -89,6 +105,58 @@ class ISessionTest {
             MemorySegment globalPtr = session.getGlobalSession();
             assertNotNull(globalPtr);
             assertNotEquals(MemorySegment.NULL, globalPtr, "getGlobalSession should return non-null");
+
+            session.close();
+        }
+        globalSession.close();
+    }
+
+    @Test
+    void getDynamicType() {
+        var globalSession = IGlobalSession.create();
+        try (Arena arena = Arena.ofConfined()) {
+            var session = createSession(arena, globalSession);
+
+            MemorySegment dynamicType = session.getDynamicType();
+            assertNotNull(dynamicType);
+            assertNotEquals(MemorySegment.NULL, dynamicType, "getDynamicType should return non-null");
+
+            session.close();
+        }
+        globalSession.close();
+    }
+
+    @Test
+    void getTypeLayout() {
+        var globalSession = IGlobalSession.create();
+        try (Arena arena = Arena.ofConfined()) {
+            var session = createSession(arena, globalSession);
+
+            IModule module = session.loadModuleFromSourceString(
+                arena, "structMod", "structMod.slang", SHADER_WITH_STRUCT);
+
+            // Get the program layout via IComponentType.getLayout
+            MemorySegment programLayout = module.getLayout(arena, 0);
+            assertNotEquals(MemorySegment.NULL, programLayout);
+
+            // Get first parameter's type reflection
+            int paramCount = SlangReflection.getParameterCount(programLayout);
+            assertTrue(paramCount > 0, "Expected at least one parameter");
+
+            MemorySegment paramLayout = SlangReflection.getParameterByIndex(programLayout, 0);
+            MemorySegment typeLayout = SlangReflection.getTypeLayout(paramLayout);
+            assertNotEquals(MemorySegment.NULL, typeLayout, "Type layout from reflection should be non-null");
+
+            // Get the type reflection from the variable
+            MemorySegment variable = SlangReflection.getVariable(paramLayout);
+            MemorySegment typeReflection = SlangReflection.getVariableType(variable);
+            assertNotEquals(MemorySegment.NULL, typeReflection, "Type reflection should be non-null");
+
+            // Now use ISession.getTypeLayout to get the layout for this type
+            // rules=0 means default layout rules
+            MemorySegment sessionTypeLayout = session.getTypeLayout(arena, typeReflection, 0, 0);
+            assertNotEquals(MemorySegment.NULL, sessionTypeLayout,
+                "getTypeLayout via session should return non-null");
 
             session.close();
         }
