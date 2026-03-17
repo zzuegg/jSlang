@@ -80,6 +80,16 @@ class IGlobalSessionExtTest {
     }
 
     @Test
+    void getSharedLibraryLoader() {
+        try (var session = IGlobalSession.create()) {
+            // May return NULL if no custom loader is set — that's fine
+            MemorySegment loader = session.getSharedLibraryLoader();
+            assertNotNull(loader, "getSharedLibraryLoader should return a non-null MemorySegment (possibly NULL address)");
+            System.out.println("Shared library loader: " + loader);
+        }
+    }
+
+    @Test
     void setAndGetLanguagePrelude() {
         try (var session = IGlobalSession.create()) {
             String prelude = "// test prelude for Slang language\n";

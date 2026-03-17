@@ -17,11 +17,25 @@ public class IGlobalSession extends ISlangUnknown {
     private static final int SLOT_GET_DEFAULT_DOWNSTREAM_COMPILER = 10;
     private static final int SLOT_SET_LANGUAGE_PRELUDE = 11;
     private static final int SLOT_GET_LANGUAGE_PRELUDE = 12;
+    private static final int SLOT_CREATE_COMPILE_REQUEST = 13;
     private static final int SLOT_ADD_BUILTINS = 14;
+    private static final int SLOT_SET_SHARED_LIBRARY_LOADER = 15;
+    private static final int SLOT_GET_SHARED_LIBRARY_LOADER = 16;
     private static final int SLOT_CHECK_COMPILE_TARGET_SUPPORT = 17;
     private static final int SLOT_CHECK_PASS_THROUGH_SUPPORT = 18;
+    private static final int SLOT_COMPILE_CORE_MODULE = 19;
+    private static final int SLOT_LOAD_CORE_MODULE = 20;
+    private static final int SLOT_SAVE_CORE_MODULE = 21;
     private static final int SLOT_FIND_CAPABILITY = 22;
+    private static final int SLOT_SET_DOWNSTREAM_COMPILER_FOR_TRANSITION = 23;
+    private static final int SLOT_GET_DOWNSTREAM_COMPILER_FOR_TRANSITION = 24;
     private static final int SLOT_GET_COMPILER_ELAPSED_TIME = 25;
+    private static final int SLOT_SET_SPIRV_CORE_GRAMMAR = 26;
+    private static final int SLOT_PARSE_COMMAND_LINE_ARGUMENTS = 27;
+    private static final int SLOT_GET_SESSION_DESC_DIGEST = 28;
+    private static final int SLOT_COMPILE_BUILTIN_MODULE = 29;
+    private static final int SLOT_LOAD_BUILTIN_MODULE = 30;
+    private static final int SLOT_SAVE_BUILTIN_MODULE = 31;
 
     private static final FunctionDescriptor DESC_CREATE_SESSION =
         FunctionDescriptor.of(ValueLayout.JAVA_INT,
@@ -74,6 +88,61 @@ public class IGlobalSession extends ISlangUnknown {
 
     private static final FunctionDescriptor DESC_GET_COMPILER_ELAPSED_TIME =
         FunctionDescriptor.ofVoid(ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.ADDRESS);
+
+    private static final FunctionDescriptor DESC_CREATE_COMPILE_REQUEST =
+        FunctionDescriptor.of(ValueLayout.JAVA_INT,
+            ValueLayout.ADDRESS, ValueLayout.ADDRESS);
+
+    private static final FunctionDescriptor DESC_SET_SHARED_LIBRARY_LOADER =
+        FunctionDescriptor.ofVoid(ValueLayout.ADDRESS, ValueLayout.ADDRESS);
+
+    private static final FunctionDescriptor DESC_GET_SHARED_LIBRARY_LOADER =
+        FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.ADDRESS);
+
+    private static final FunctionDescriptor DESC_COMPILE_CORE_MODULE =
+        FunctionDescriptor.of(ValueLayout.JAVA_INT,
+            ValueLayout.ADDRESS, ValueLayout.JAVA_INT);
+
+    private static final FunctionDescriptor DESC_LOAD_CORE_MODULE =
+        FunctionDescriptor.of(ValueLayout.JAVA_INT,
+            ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG);
+
+    private static final FunctionDescriptor DESC_SAVE_CORE_MODULE =
+        FunctionDescriptor.of(ValueLayout.JAVA_INT,
+            ValueLayout.ADDRESS, ValueLayout.JAVA_INT, ValueLayout.ADDRESS);
+
+    private static final FunctionDescriptor DESC_SET_DOWNSTREAM_COMPILER_FOR_TRANSITION =
+        FunctionDescriptor.ofVoid(ValueLayout.ADDRESS,
+            ValueLayout.JAVA_INT, ValueLayout.JAVA_INT, ValueLayout.JAVA_INT);
+
+    private static final FunctionDescriptor DESC_GET_DOWNSTREAM_COMPILER_FOR_TRANSITION =
+        FunctionDescriptor.of(ValueLayout.JAVA_INT,
+            ValueLayout.ADDRESS, ValueLayout.JAVA_INT, ValueLayout.JAVA_INT);
+
+    private static final FunctionDescriptor DESC_SET_SPIRV_CORE_GRAMMAR =
+        FunctionDescriptor.of(ValueLayout.JAVA_INT,
+            ValueLayout.ADDRESS, ValueLayout.ADDRESS);
+
+    private static final FunctionDescriptor DESC_PARSE_COMMAND_LINE_ARGUMENTS =
+        FunctionDescriptor.of(ValueLayout.JAVA_INT,
+            ValueLayout.ADDRESS, ValueLayout.JAVA_INT, ValueLayout.ADDRESS,
+            ValueLayout.ADDRESS, ValueLayout.ADDRESS);
+
+    private static final FunctionDescriptor DESC_GET_SESSION_DESC_DIGEST =
+        FunctionDescriptor.of(ValueLayout.JAVA_INT,
+            ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.ADDRESS);
+
+    private static final FunctionDescriptor DESC_COMPILE_BUILTIN_MODULE =
+        FunctionDescriptor.of(ValueLayout.JAVA_INT,
+            ValueLayout.ADDRESS, ValueLayout.JAVA_INT, ValueLayout.JAVA_INT);
+
+    private static final FunctionDescriptor DESC_LOAD_BUILTIN_MODULE =
+        FunctionDescriptor.of(ValueLayout.JAVA_INT,
+            ValueLayout.ADDRESS, ValueLayout.JAVA_INT, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG);
+
+    private static final FunctionDescriptor DESC_SAVE_BUILTIN_MODULE =
+        FunctionDescriptor.of(ValueLayout.JAVA_INT,
+            ValueLayout.ADDRESS, ValueLayout.JAVA_INT, ValueLayout.JAVA_INT, ValueLayout.ADDRESS);
 
     public IGlobalSession(MemorySegment self) {
         super(self);
@@ -268,6 +337,179 @@ public class IGlobalSession extends ISlangUnknown {
             };
         } catch (Throwable t) {
             throw new RuntimeException("getCompilerElapsedTime failed", t);
+        }
+    }
+
+    public MemorySegment createCompileRequest(Arena arena) {
+        try {
+            MemorySegment out = arena.allocate(ValueLayout.ADDRESS);
+            int result = (int) getHandle(SLOT_CREATE_COMPILE_REQUEST, DESC_CREATE_COMPILE_REQUEST)
+                .invokeExact(self, out);
+            SlangResult.check(result, "IGlobalSession::createCompileRequest");
+            return out.get(ValueLayout.ADDRESS, 0);
+        } catch (RuntimeException e) {
+            throw e;
+        } catch (Throwable t) {
+            throw new RuntimeException("createCompileRequest failed", t);
+        }
+    }
+
+    public void setSharedLibraryLoader(MemorySegment loader) {
+        try {
+            getHandle(SLOT_SET_SHARED_LIBRARY_LOADER, DESC_SET_SHARED_LIBRARY_LOADER)
+                .invokeExact(self, loader);
+        } catch (Throwable t) {
+            throw new RuntimeException("setSharedLibraryLoader failed", t);
+        }
+    }
+
+    public MemorySegment getSharedLibraryLoader() {
+        try {
+            return (MemorySegment) getHandle(SLOT_GET_SHARED_LIBRARY_LOADER, DESC_GET_SHARED_LIBRARY_LOADER)
+                .invokeExact(self);
+        } catch (Throwable t) {
+            throw new RuntimeException("getSharedLibraryLoader failed", t);
+        }
+    }
+
+    public void compileCoreModule(int flags) {
+        try {
+            int result = (int) getHandle(SLOT_COMPILE_CORE_MODULE, DESC_COMPILE_CORE_MODULE)
+                .invokeExact(self, flags);
+            SlangResult.check(result, "IGlobalSession::compileCoreModule");
+        } catch (RuntimeException e) {
+            throw e;
+        } catch (Throwable t) {
+            throw new RuntimeException("compileCoreModule failed", t);
+        }
+    }
+
+    public void loadCoreModule(MemorySegment data, long size) {
+        try {
+            int result = (int) getHandle(SLOT_LOAD_CORE_MODULE, DESC_LOAD_CORE_MODULE)
+                .invokeExact(self, data, size);
+            SlangResult.check(result, "IGlobalSession::loadCoreModule");
+        } catch (RuntimeException e) {
+            throw e;
+        } catch (Throwable t) {
+            throw new RuntimeException("loadCoreModule failed", t);
+        }
+    }
+
+    public ISlangBlob saveCoreModule(Arena arena, int archiveType) {
+        try {
+            MemorySegment outBlob = arena.allocate(ValueLayout.ADDRESS);
+            int result = (int) getHandle(SLOT_SAVE_CORE_MODULE, DESC_SAVE_CORE_MODULE)
+                .invokeExact(self, archiveType, outBlob);
+            SlangResult.check(result, "IGlobalSession::saveCoreModule");
+            MemorySegment blobPtr = outBlob.get(ValueLayout.ADDRESS, 0);
+            if (blobPtr.equals(MemorySegment.NULL)) return null;
+            return new ISlangBlob(blobPtr);
+        } catch (RuntimeException e) {
+            throw e;
+        } catch (Throwable t) {
+            throw new RuntimeException("saveCoreModule failed", t);
+        }
+    }
+
+    public void setDownstreamCompilerForTransition(int source, int target, int compiler) {
+        try {
+            getHandle(SLOT_SET_DOWNSTREAM_COMPILER_FOR_TRANSITION, DESC_SET_DOWNSTREAM_COMPILER_FOR_TRANSITION)
+                .invokeExact(self, source, target, compiler);
+        } catch (Throwable t) {
+            throw new RuntimeException("setDownstreamCompilerForTransition failed", t);
+        }
+    }
+
+    public int getDownstreamCompilerForTransition(int source, int target) {
+        try {
+            return (int) getHandle(SLOT_GET_DOWNSTREAM_COMPILER_FOR_TRANSITION, DESC_GET_DOWNSTREAM_COMPILER_FOR_TRANSITION)
+                .invokeExact(self, source, target);
+        } catch (Throwable t) {
+            throw new RuntimeException("getDownstreamCompilerForTransition failed", t);
+        }
+    }
+
+    public void setSPIRVCoreGrammar(Arena arena, String path) {
+        try {
+            MemorySegment pathStr = arena.allocateUtf8String(path);
+            int result = (int) getHandle(SLOT_SET_SPIRV_CORE_GRAMMAR, DESC_SET_SPIRV_CORE_GRAMMAR)
+                .invokeExact(self, pathStr);
+            SlangResult.check(result, "IGlobalSession::setSPIRVCoreGrammar");
+        } catch (RuntimeException e) {
+            throw e;
+        } catch (Throwable t) {
+            throw new RuntimeException("setSPIRVCoreGrammar failed", t);
+        }
+    }
+
+    public MemorySegment parseCommandLineArguments(Arena arena, int argc, MemorySegment argv,
+                                                    MemorySegment outSessionDesc, MemorySegment outAuxAllocation) {
+        try {
+            int result = (int) getHandle(SLOT_PARSE_COMMAND_LINE_ARGUMENTS, DESC_PARSE_COMMAND_LINE_ARGUMENTS)
+                .invokeExact(self, argc, argv, outSessionDesc, outAuxAllocation);
+            SlangResult.check(result, "IGlobalSession::parseCommandLineArguments");
+            return outSessionDesc;
+        } catch (RuntimeException e) {
+            throw e;
+        } catch (Throwable t) {
+            throw new RuntimeException("parseCommandLineArguments failed", t);
+        }
+    }
+
+    public ISlangBlob getSessionDescDigest(Arena arena, MemorySegment sessionDesc) {
+        try {
+            MemorySegment outBlob = arena.allocate(ValueLayout.ADDRESS);
+            int result = (int) getHandle(SLOT_GET_SESSION_DESC_DIGEST, DESC_GET_SESSION_DESC_DIGEST)
+                .invokeExact(self, sessionDesc, outBlob);
+            SlangResult.check(result, "IGlobalSession::getSessionDescDigest");
+            MemorySegment blobPtr = outBlob.get(ValueLayout.ADDRESS, 0);
+            if (blobPtr.equals(MemorySegment.NULL)) return null;
+            return new ISlangBlob(blobPtr);
+        } catch (RuntimeException e) {
+            throw e;
+        } catch (Throwable t) {
+            throw new RuntimeException("getSessionDescDigest failed", t);
+        }
+    }
+
+    public void compileBuiltinModule(int module, int flags) {
+        try {
+            int result = (int) getHandle(SLOT_COMPILE_BUILTIN_MODULE, DESC_COMPILE_BUILTIN_MODULE)
+                .invokeExact(self, module, flags);
+            SlangResult.check(result, "IGlobalSession::compileBuiltinModule");
+        } catch (RuntimeException e) {
+            throw e;
+        } catch (Throwable t) {
+            throw new RuntimeException("compileBuiltinModule failed", t);
+        }
+    }
+
+    public void loadBuiltinModule(int module, MemorySegment data, long size) {
+        try {
+            int result = (int) getHandle(SLOT_LOAD_BUILTIN_MODULE, DESC_LOAD_BUILTIN_MODULE)
+                .invokeExact(self, module, data, size);
+            SlangResult.check(result, "IGlobalSession::loadBuiltinModule");
+        } catch (RuntimeException e) {
+            throw e;
+        } catch (Throwable t) {
+            throw new RuntimeException("loadBuiltinModule failed", t);
+        }
+    }
+
+    public ISlangBlob saveBuiltinModule(Arena arena, int module, int archiveType) {
+        try {
+            MemorySegment outBlob = arena.allocate(ValueLayout.ADDRESS);
+            int result = (int) getHandle(SLOT_SAVE_BUILTIN_MODULE, DESC_SAVE_BUILTIN_MODULE)
+                .invokeExact(self, module, archiveType, outBlob);
+            SlangResult.check(result, "IGlobalSession::saveBuiltinModule");
+            MemorySegment blobPtr = outBlob.get(ValueLayout.ADDRESS, 0);
+            if (blobPtr.equals(MemorySegment.NULL)) return null;
+            return new ISlangBlob(blobPtr);
+        } catch (RuntimeException e) {
+            throw e;
+        } catch (Throwable t) {
+            throw new RuntimeException("saveBuiltinModule failed", t);
         }
     }
 }
