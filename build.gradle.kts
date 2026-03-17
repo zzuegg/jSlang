@@ -15,8 +15,12 @@ subprojects {
         mavenCentral()
     }
 
+    tasks.withType<JavaCompile> {
+        options.compilerArgs.addAll(listOf("--enable-preview"))
+    }
+
     tasks.withType<Test> {
         useJUnitPlatform()
-        jvmArgs("--enable-native-access=ALL-UNNAMED")
+        jvmArgs("--enable-preview", "--enable-native-access=ALL-UNNAMED")
     }
 }
