@@ -22,5 +22,7 @@ subprojects {
     tasks.withType<Test> {
         useJUnitPlatform()
         jvmArgs("--enable-preview", "--enable-native-access=ALL-UNNAMED")
+        // Inherit LD_LIBRARY_PATH so tests can find libslang.so
+        environment("LD_LIBRARY_PATH", System.getenv("LD_LIBRARY_PATH") ?: "")
     }
 }
