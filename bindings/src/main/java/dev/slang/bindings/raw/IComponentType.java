@@ -5,6 +5,7 @@ import java.lang.foreign.*;
 
 public class IComponentType extends ISlangUnknown {
 
+    private static final int SLOT_GET_LAYOUT = 4;
     private static final int SLOT_GET_ENTRY_POINT_CODE = 6;
     private static final int SLOT_LINK = 10;
     private static final int SLOT_GET_TARGET_CODE = 14;
@@ -23,8 +24,28 @@ public class IComponentType extends ISlangUnknown {
             ValueLayout.ADDRESS, ValueLayout.JAVA_LONG,
             ValueLayout.ADDRESS, ValueLayout.ADDRESS);
 
+    private static final FunctionDescriptor DESC_GET_LAYOUT =
+        FunctionDescriptor.of(ValueLayout.ADDRESS,
+            ValueLayout.ADDRESS, // self
+            ValueLayout.JAVA_LONG, // targetIndex
+            ValueLayout.ADDRESS  // IBlob** outDiag
+        );
+
     public IComponentType(MemorySegment self) {
         super(self);
+    }
+
+    public MemorySegment getLayout(Arena arena, long targetIndex) {
+        MemorySegment outDiag = arena.allocate(ValueLayout.ADDRESS);
+        try {
+            MemorySegment layout = (MemorySegment) getHandle(SLOT_GET_LAYOUT, DESC_GET_LAYOUT)
+                .invokeExact(self, targetIndex, outDiag);
+            if (layout.equals(MemorySegment.NULL)) {
+                throw new RuntimeException("getLayout returned null");
+            }
+            return layout;
+        } catch (RuntimeException e) { throw e;
+        } catch (Throwable t) { throw new RuntimeException("getLayout failed", t); }
     }
 
     public IComponentType link(Arena arena) {
