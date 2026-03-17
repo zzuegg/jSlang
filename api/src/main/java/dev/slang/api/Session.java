@@ -23,6 +23,14 @@ public class Session implements AutoCloseable {
         }
     }
 
+    public long getLoadedModuleCount() {
+        return raw.getLoadedModuleCount();
+    }
+
+    public Module getLoadedModule(int index) {
+        return new Module(raw.getLoadedModule(index));
+    }
+
     public ComponentType createCompositeComponentType(ComponentType... components) {
         try (Arena arena = Arena.ofConfined()) {
             IComponentType[] rawComponents = new IComponentType[components.length];

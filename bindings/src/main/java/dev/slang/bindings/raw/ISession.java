@@ -5,18 +5,42 @@ import java.lang.foreign.*;
 
 public class ISession extends ISlangUnknown {
 
+    private static final int SLOT_GET_GLOBAL_SESSION = 3;
     private static final int SLOT_LOAD_MODULE = 4;
+    private static final int SLOT_LOAD_MODULE_FROM_SOURCE = 5;
     private static final int SLOT_CREATE_COMPOSITE_COMPONENT_TYPE = 6;
+    private static final int SLOT_GET_LOADED_MODULE_COUNT = 17;
+    private static final int SLOT_GET_LOADED_MODULE = 18;
+    private static final int SLOT_IS_BINARY_MODULE_UP_TO_DATE = 19;
     private static final int SLOT_LOAD_MODULE_FROM_SOURCE_STRING = 20;
+
+    private static final FunctionDescriptor DESC_GET_GLOBAL_SESSION =
+        FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.ADDRESS);
 
     private static final FunctionDescriptor DESC_LOAD_MODULE =
         FunctionDescriptor.of(ValueLayout.ADDRESS,
+            ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.ADDRESS);
+
+    private static final FunctionDescriptor DESC_LOAD_MODULE_FROM_SOURCE =
+        FunctionDescriptor.of(ValueLayout.ADDRESS,
+            ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.ADDRESS,
             ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.ADDRESS);
 
     private static final FunctionDescriptor DESC_CREATE_COMPOSITE =
         FunctionDescriptor.of(ValueLayout.JAVA_INT,
             ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG,
             ValueLayout.ADDRESS, ValueLayout.ADDRESS);
+
+    private static final FunctionDescriptor DESC_GET_LOADED_MODULE_COUNT =
+        FunctionDescriptor.of(ValueLayout.JAVA_LONG, ValueLayout.ADDRESS);
+
+    private static final FunctionDescriptor DESC_GET_LOADED_MODULE =
+        FunctionDescriptor.of(ValueLayout.ADDRESS,
+            ValueLayout.ADDRESS, ValueLayout.JAVA_LONG);
+
+    private static final FunctionDescriptor DESC_IS_BINARY_MODULE_UP_TO_DATE =
+        FunctionDescriptor.of(ValueLayout.JAVA_INT,
+            ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.ADDRESS);
 
     private static final FunctionDescriptor DESC_LOAD_MODULE_FROM_SOURCE_STRING =
         FunctionDescriptor.of(ValueLayout.ADDRESS,
@@ -63,6 +87,61 @@ public class ISession extends ISlangUnknown {
             return new IModule(modulePtr);
         } catch (RuntimeException e) { throw e;
         } catch (Throwable t) { throw new RuntimeException("loadModuleFromSourceString failed", t); }
+    }
+
+    public MemorySegment getGlobalSession() {
+        try {
+            return (MemorySegment) getHandle(SLOT_GET_GLOBAL_SESSION, DESC_GET_GLOBAL_SESSION)
+                .invokeExact(self);
+        } catch (Throwable t) { throw new RuntimeException("getGlobalSession failed", t); }
+    }
+
+    public IModule loadModuleFromSource(Arena arena, String moduleName, String path, ISlangBlob sourceBlob) {
+        MemorySegment nameStr = arena.allocateUtf8String(moduleName);
+        MemorySegment pathStr = arena.allocateUtf8String(path);
+        MemorySegment outDiag = arena.allocate(ValueLayout.ADDRESS);
+        try {
+            MemorySegment modulePtr = (MemorySegment)
+                getHandle(SLOT_LOAD_MODULE_FROM_SOURCE, DESC_LOAD_MODULE_FROM_SOURCE)
+                    .invokeExact(self, nameStr, pathStr, sourceBlob.ptr(), MemorySegment.NULL, outDiag);
+            if (modulePtr.equals(MemorySegment.NULL)) {
+                MemorySegment diagPtr = outDiag.get(ValueLayout.ADDRESS, 0);
+                String diagMsg = "";
+                if (!diagPtr.equals(MemorySegment.NULL)) {
+                    ISlangBlob diagBlob = new ISlangBlob(diagPtr);
+                    diagMsg = new String(diagBlob.toByteArray());
+                    diagBlob.release();
+                }
+                throw new RuntimeException("loadModuleFromSource failed: " + diagMsg);
+            }
+            return new IModule(modulePtr);
+        } catch (RuntimeException e) { throw e;
+        } catch (Throwable t) { throw new RuntimeException("loadModuleFromSource failed", t); }
+    }
+
+    public long getLoadedModuleCount() {
+        try {
+            return (long) getHandle(SLOT_GET_LOADED_MODULE_COUNT, DESC_GET_LOADED_MODULE_COUNT)
+                .invokeExact(self);
+        } catch (Throwable t) { throw new RuntimeException("getLoadedModuleCount failed", t); }
+    }
+
+    public IModule getLoadedModule(long index) {
+        try {
+            MemorySegment modulePtr = (MemorySegment)
+                getHandle(SLOT_GET_LOADED_MODULE, DESC_GET_LOADED_MODULE)
+                    .invokeExact(self, index);
+            return new IModule(modulePtr);
+        } catch (Throwable t) { throw new RuntimeException("getLoadedModule failed", t); }
+    }
+
+    public boolean isBinaryModuleUpToDate(Arena arena, String path, ISlangBlob blob) {
+        MemorySegment pathStr = arena.allocateUtf8String(path);
+        try {
+            int result = (int) getHandle(SLOT_IS_BINARY_MODULE_UP_TO_DATE, DESC_IS_BINARY_MODULE_UP_TO_DATE)
+                .invokeExact(self, pathStr, blob.ptr());
+            return result >= 0;
+        } catch (Throwable t) { throw new RuntimeException("isBinaryModuleUpToDate failed", t); }
     }
 
     public IComponentType createCompositeComponentType(Arena arena, IComponentType... components) {
