@@ -1,5 +1,6 @@
 package dev.slang.api;
 
+import dev.slang.api.reflect.ProgramLayout;
 import dev.slang.bindings.raw.IComponentType;
 import dev.slang.bindings.raw.ISlangBlob;
 import java.lang.foreign.Arena;
@@ -34,6 +35,14 @@ public class ComponentType implements AutoCloseable {
             return new Blob(blob);
         } catch (RuntimeException e) {
             throw new SlangException(e.getMessage(), e);
+        }
+    }
+
+    public ProgramLayout getLayout(int targetIndex) {
+        try (Arena arena = Arena.ofConfined()) {
+            return new ProgramLayout(raw.getLayout(arena, targetIndex));
+        } catch (RuntimeException e) {
+            throw e;
         }
     }
 
