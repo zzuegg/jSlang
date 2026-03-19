@@ -6,6 +6,7 @@ import dev.slang.api.reflect.ProgramLayout;
 import dev.slang.bindings.enums.CompileTarget;
 import dev.slang.bindings.enums.Stage;
 
+import java.lang.foreign.Arena;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
@@ -44,10 +45,27 @@ public class SlangShaderGenerator {
             defines, List.of()).sources();
     }
 
+    public ShaderSources compileSpecialized(String moduleName, String sourceCode,
+                                             String vertexEntry, String fragmentEntry,
+                                             Map<String, String> defines,
+                                             List<String> specializationTypes) throws SlangException {
+        return compileWithReflection(moduleName, sourceCode, vertexEntry, fragmentEntry,
+            defines, List.of(), specializationTypes).sources();
+    }
+
     public CompilationResult compileWithReflection(String moduleName, String sourceCode,
                                                      String vertexEntry, String fragmentEntry,
                                                      Map<String, String> defines,
                                                      List<String> searchPaths) throws SlangException {
+        return compileWithReflection(moduleName, sourceCode, vertexEntry, fragmentEntry,
+            defines, searchPaths, List.of());
+    }
+
+    public CompilationResult compileWithReflection(String moduleName, String sourceCode,
+                                                     String vertexEntry, String fragmentEntry,
+                                                     Map<String, String> defines,
+                                                     List<String> searchPaths,
+                                                     List<String> specializationTypes) throws SlangException {
         var builder = new SessionDescBuilder()
             .addTarget(new TargetDescBuilder()
                 .format(CompileTarget.GLSL)
@@ -67,7 +85,19 @@ public class SlangShaderGenerator {
             var vsEp = module.findAndCheckEntryPoint(vertexEntry, Stage.VERTEX);
             var fsEp = module.findAndCheckEntryPoint(fragmentEntry, Stage.FRAGMENT);
             var composite = session.createCompositeComponentType(module, vsEp, fsEp);
-            var linked = composite.link();
+
+            // Specialize if type names are provided
+            ComponentType toLink;
+            if (!specializationTypes.isEmpty()) {
+                try (Arena arena = Arena.ofConfined()) {
+                    toLink = composite.specialize(arena,
+                        specializationTypes.toArray(String[]::new));
+                }
+            } else {
+                toLink = composite;
+            }
+
+            var linked = toLink.link();
 
             String vertexGlsl;
             try (var blob = linked.getEntryPointCode(0, 0)) {
@@ -80,7 +110,6 @@ public class SlangShaderGenerator {
             }
 
             // Extract all reflection data NOW while the session/layout is still alive.
-            // ProgramLayout holds a raw native pointer that becomes dangling after session close.
             ProgramLayout layout = linked.getLayout(0);
             var materialParams = reflectionMapper.extractParameters(layout);
             var worldBindings = reflectionMapper.extractWorldBindings(layout);

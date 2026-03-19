@@ -11,6 +11,7 @@ public class SlangTechniqueConfig {
     private final RenderState renderState;
     private final List<String> worldParams;
     private final Map<String, String> staticDefines;
+    private final List<String> specializationTypes;
 
     private SlangTechniqueConfig(Builder builder) {
         this.vertexEntryPoint = builder.vertexEntryPoint;
@@ -19,6 +20,7 @@ public class SlangTechniqueConfig {
         this.renderState = builder.renderState;
         this.worldParams = List.copyOf(builder.worldParams);
         this.staticDefines = Map.copyOf(builder.staticDefines);
+        this.specializationTypes = List.copyOf(builder.specializationTypes);
     }
 
     public String vertexEntryPoint() { return vertexEntryPoint; }
@@ -27,6 +29,7 @@ public class SlangTechniqueConfig {
     public RenderState renderState() { return renderState; }
     public List<String> worldParams() { return worldParams; }
     public Map<String, String> staticDefines() { return staticDefines; }
+    public List<String> specializationTypes() { return specializationTypes; }
 
     public static Builder builder() { return new Builder(); }
 
@@ -37,6 +40,7 @@ public class SlangTechniqueConfig {
         private RenderState renderState;
         private final List<String> worldParams = new ArrayList<>();
         private final Map<String, String> staticDefines = new LinkedHashMap<>();
+        private final List<String> specializationTypes = new ArrayList<>();
 
         public Builder vertexEntry(String entry) { this.vertexEntryPoint = entry; return this; }
         public Builder fragmentEntry(String entry) { this.fragmentEntryPoint = entry; return this; }
@@ -44,6 +48,7 @@ public class SlangTechniqueConfig {
         public Builder renderState(RenderState state) { this.renderState = state; return this; }
         public Builder worldParam(String name) { this.worldParams.add(name); return this; }
         public Builder staticDefine(String name, String value) { this.staticDefines.put(name, value); return this; }
+        public Builder specialize(String typeName) { this.specializationTypes.add(typeName); return this; }
 
         public SlangTechniqueConfig build() { return new SlangTechniqueConfig(this); }
     }

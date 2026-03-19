@@ -71,11 +71,12 @@ public class SlangMaterialSystem implements AutoCloseable {
 
     public MaterialDef loadMaterialDefFromSource(String name, String sourceCode,
                                                    SlangTechniqueConfig config) throws SlangException {
-        // 1. Compile with static defines to get reflection data
+        // 1. Compile with static defines and specializations to get reflection data
         var result = generator.compileWithReflection(
             name, sourceCode,
             config.vertexEntryPoint(), config.fragmentEntryPoint(),
-            config.staticDefines(), searchPaths);
+            config.staticDefines(), searchPaths,
+            config.specializationTypes());
 
         // 2. Use pre-extracted reflection data (extracted while session was alive)
         var materialParams = result.reflection().materialParams();
@@ -185,7 +186,8 @@ public class SlangMaterialSystem implements AutoCloseable {
             techniqueDef,
             modeConfig != null ? modeConfig.logic() : null,
             generator, postProcessor,
-            moduleName, sourceCode, vertexEntry, fragmentEntry);
+            moduleName, sourceCode, vertexEntry, fragmentEntry,
+            config.specializationTypes());
         logic.setParamNames(matParamNames, worldParamNames);
         techniqueDef.setLogic(logic);
 

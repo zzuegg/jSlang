@@ -3,7 +3,10 @@ package dev.slang.api;
 import dev.slang.api.reflect.ProgramLayout;
 import dev.slang.bindings.raw.IComponentType;
 import dev.slang.bindings.raw.ISlangBlob;
+import dev.slang.bindings.raw.SlangReflection;
 import java.lang.foreign.Arena;
+import java.lang.foreign.MemorySegment;
+import java.lang.foreign.ValueLayout;
 
 public class ComponentType implements AutoCloseable {
     protected final IComponentType raw;
@@ -55,6 +58,33 @@ public class ComponentType implements AutoCloseable {
             return new ComponentType(raw.renameEntryPoint(arena, newName));
         } catch (RuntimeException e) {
             throw new SlangException(e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Specializes this generic component with the given type names.
+     * Types are looked up by name from the program's reflection layout.
+     */
+    public ComponentType specialize(Arena arena, String... typeNames) throws SlangException {
+        MemorySegment layout = raw.getLayout(arena, 0);
+
+        // Build SpecializationArg array: each arg is { int32 kind=1 (Type), padding, SlangReflectionType* }
+        MemorySegment specArgs = arena.allocate(16L * typeNames.length);
+        for (int i = 0; i < typeNames.length; i++) {
+            MemorySegment type = SlangReflection.findTypeByName(layout, arena, typeNames[i]);
+            if (type.equals(MemorySegment.NULL)) {
+                throw new SlangException("Specialization type not found: " + typeNames[i],
+                    new IllegalArgumentException(typeNames[i]));
+            }
+            long offset = 16L * i;
+            specArgs.set(ValueLayout.JAVA_INT, offset, 1); // kind = 1 (Type)
+            specArgs.set(ValueLayout.ADDRESS, offset + 8, type);
+        }
+
+        try {
+            return new ComponentType(raw.specialize(arena, specArgs, typeNames.length));
+        } catch (RuntimeException e) {
+            throw new SlangException("Specialization failed: " + e.getMessage(), e);
         }
     }
 

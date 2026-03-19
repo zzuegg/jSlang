@@ -1,0 +1,8 @@
+SlangMaterial {
+    MaterialDef: Shaders/ComposablePBR.slang
+
+    Specialize: LambertBRDF
+    Specialize: FlatNormal
+
+    Vector3 baseColor: 0.8 0.2 0.2
+}

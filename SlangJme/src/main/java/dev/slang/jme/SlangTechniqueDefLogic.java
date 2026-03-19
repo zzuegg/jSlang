@@ -30,7 +30,8 @@ public class SlangTechniqueDefLogic implements TechniqueDefLogic {
     private final String sourceCode;
     private final String vertexEntry;
     private final String fragmentEntry;
-    private final Map<DefineList, Shader> shaderCache = new ConcurrentHashMap<>();
+    private final List<String> specializationTypes;
+    private final Map<String, Shader> shaderCache = new ConcurrentHashMap<>();
 
     private Set<String> materialParamNames;
     private Set<String> worldParamNames;
@@ -41,6 +42,17 @@ public class SlangTechniqueDefLogic implements TechniqueDefLogic {
                                    GlslPostProcessor postProcessor,
                                    String moduleName, String sourceCode,
                                    String vertexEntry, String fragmentEntry) {
+        this(techniqueDef, delegate, generator, postProcessor,
+             moduleName, sourceCode, vertexEntry, fragmentEntry, List.of());
+    }
+
+    public SlangTechniqueDefLogic(TechniqueDef techniqueDef,
+                                   TechniqueDefLogic delegate,
+                                   SlangShaderGenerator generator,
+                                   GlslPostProcessor postProcessor,
+                                   String moduleName, String sourceCode,
+                                   String vertexEntry, String fragmentEntry,
+                                   List<String> specializationTypes) {
         this.techniqueDef = techniqueDef;
         this.delegate = delegate;
         this.generator = generator;
@@ -49,6 +61,7 @@ public class SlangTechniqueDefLogic implements TechniqueDefLogic {
         this.sourceCode = sourceCode;
         this.vertexEntry = vertexEntry;
         this.fragmentEntry = fragmentEntry;
+        this.specializationTypes = specializationTypes;
     }
 
     public void setParamNames(Set<String> materialParamNames, Set<String> worldParamNames) {
@@ -65,18 +78,19 @@ public class SlangTechniqueDefLogic implements TechniqueDefLogic {
             delegate.makeCurrent(assetManager, renderManager, rendererCaps, lights, defines);
         }
 
-        // Check cache
-        DefineList key = defines.deepClone();
-        Shader cached = shaderCache.get(key);
+        // Cache key includes defines + specialization types
+        String cacheKey = defines.deepClone().toString() + "|" + String.join(",", specializationTypes);
+        Shader cached = shaderCache.get(cacheKey);
         if (cached != null) return cached;
 
         // Convert DefineList → Slang preprocessor macros
         Map<String, String> macros = defineListToMacros(defines);
 
         try {
-            var result = generator.compile(
+            var result = generator.compileSpecialized(
                 moduleName + "_v" + shaderCache.size(),
-                sourceCode, vertexEntry, fragmentEntry, macros);
+                sourceCode, vertexEntry, fragmentEntry, macros,
+                specializationTypes);
 
             // Post-process GLSL
             String vertexGlsl = result.vertexGlsl();
@@ -97,7 +111,7 @@ public class SlangTechniqueDefLogic implements TechniqueDefLogic {
                 shader.addUniformBinding(binding);
             }
 
-            shaderCache.put(key, shader);
+            shaderCache.put(cacheKey, shader);
             return shader;
 
         } catch (Exception e) {

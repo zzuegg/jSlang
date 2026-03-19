@@ -2,18 +2,19 @@ package dev.slang.jme;
 
 import com.jme3.asset.*;
 import com.jme3.material.Material;
-import com.jme3.material.MaterialDef;
 import com.jme3.math.ColorRGBA;
 import com.jme3.math.Vector2f;
 import com.jme3.math.Vector3f;
 import com.jme3.math.Vector4f;
-import com.jme3.shader.VarType;
 import com.jme3.texture.Texture;
 
 import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -25,13 +26,13 @@ import java.util.logging.Logger;
  * SlangMaterial {
  *     MaterialDef: Shaders/PBR.slang
  *
+ *     Specialize: LambertBRDF
+ *     Specialize: FlatNormal
+ *
  *     Float roughness: 0.5
- *     Float metallic: 0.0
  *     Vector3 baseColor: 0.8 0.2 0.2
- *     Vector4 tintColor: 1.0 1.0 1.0 1.0
  *     Boolean useNormalMap: false
  *     Texture2D normalMap: Textures/normal.png
- *     Color ambient: 0.2 0.2 0.2 1.0
  * }
  * </pre>
  *
@@ -47,11 +48,12 @@ public class SlangMaterialLoader implements AssetLoader {
         AssetKey<?> key = assetInfo.getKey();
 
         String materialDefPath = null;
-        Material material = null;
+        List<String> specializationTypes = new ArrayList<>();
+        List<String> parameterLines = new ArrayList<>();
 
+        // First pass: collect MaterialDef path, specializations, and parameter lines
         try (BufferedReader reader = new BufferedReader(
                 new InputStreamReader(assetInfo.openStream(), StandardCharsets.UTF_8))) {
-
             String line;
             while ((line = reader.readLine()) != null) {
                 line = line.trim();
@@ -60,30 +62,49 @@ public class SlangMaterialLoader implements AssetLoader {
 
                 if (line.startsWith("MaterialDef:") || line.startsWith("MaterialDef :")) {
                     materialDefPath = line.substring(line.indexOf(':') + 1).trim();
-                    MaterialDef matDef = (MaterialDef) assetManager.loadAsset(
-                        new AssetKey<>(materialDefPath));
-                    material = new Material(matDef);
-                    continue;
+                } else if (line.startsWith("Specialize:") || line.startsWith("Specialize :")) {
+                    specializationTypes.add(line.substring(line.indexOf(':') + 1).trim());
+                } else {
+                    parameterLines.add(line);
                 }
-
-                if (material == null) {
-                    throw new IOException("MaterialDef must be specified before parameters in " + key);
-                }
-
-                parseParameter(material, line, assetManager, key);
             }
         }
 
-        if (material == null) {
+        if (materialDefPath == null) {
             throw new IOException("No MaterialDef specified in " + key);
+        }
+
+        // Load the shader source
+        String shaderSource;
+        try (InputStream in = assetManager.locateAsset(new AssetKey<>(materialDefPath)).openStream()) {
+            shaderSource = new String(in.readAllBytes(), StandardCharsets.UTF_8);
+        }
+
+        // Build MaterialDef with specializations
+        var system = SlangMaterialSystem.getInstance(assetManager);
+        var configBuilder = SlangTechniqueConfig.builder();
+        for (String type : specializationTypes) {
+            configBuilder.specialize(type);
+        }
+
+        Material material;
+        try {
+            material = system.loadMaterialFromSource(
+                key.getName(), shaderSource, configBuilder.build());
+        } catch (Exception e) {
+            throw new IOException("Failed to compile Slang material: " + key, e);
+        }
+
+        // Apply parameters
+        for (String line : parameterLines) {
+            parseParameter(material, line, assetManager, key);
         }
 
         return material;
     }
 
     private void parseParameter(Material material, String line,
-                                 AssetManager assetManager, AssetKey<?> key) throws IOException {
-        // Format: Type name: value
+                                 AssetManager assetManager, AssetKey<?> key) {
         int colonIdx = line.indexOf(':');
         if (colonIdx < 0) return;
 
