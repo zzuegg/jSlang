@@ -23,3 +23,9 @@ tasks.register<JavaExec>("runMultiMaterialDemo") {
     classpath = sourceSets["main"].runtimeClasspath
     jvmArgs("--enable-preview", "--enable-native-access=ALL-UNNAMED")
 }
+
+tasks.register<JavaExec>("debugShaderOutput") {
+    mainClass.set("dev.slang.jme.examples.DebugShaderOutput")
+    classpath = sourceSets["main"].runtimeClasspath
+    jvmArgs("--enable-preview", "--enable-native-access=ALL-UNNAMED")
+}

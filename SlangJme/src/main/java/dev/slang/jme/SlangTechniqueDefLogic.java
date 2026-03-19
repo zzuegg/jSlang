@@ -86,12 +86,12 @@ public class SlangTechniqueDefLogic implements TechniqueDefLogic {
                 fragmentGlsl = postProcessor.process(fragmentGlsl, materialParamNames, worldParamNames);
             }
 
-            // Build jME Shader
+            // Build jME Shader (empty string for defines — null would append "null" literal)
             Shader shader = new Shader();
             shader.addSource(Shader.ShaderType.Vertex, moduleName + ".vert",
-                vertexGlsl, null, "GLSL330");
+                vertexGlsl, "", "GLSL450");
             shader.addSource(Shader.ShaderType.Fragment, moduleName + ".frag",
-                fragmentGlsl, null, "GLSL330");
+                fragmentGlsl, "", "GLSL450");
 
             for (UniformBinding binding : techniqueDef.getWorldBindings()) {
                 shader.addUniformBinding(binding);

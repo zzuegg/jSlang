@@ -134,11 +134,18 @@ public class GlslPostProcessor {
      */
     String adjustVersion(String glsl) {
         String result = glsl;
-        result = result.replace("#version 450", "#version 330");
+        // Remove #version — jME manages the version directive itself
+        result = result.replaceAll("#version \\d+\\s*\\n", "");
         result = result.replace("layout(column_major) uniform;\n", "");
         result = result.replace("layout(column_major) buffer;\n", "");
         // Remove layout(binding = N) from remaining declarations
         result = result.replaceAll("layout\\(binding = \\d+\\)\\s*\\n", "");
+        // Remove #line directives — Slang emits #line N M format which can
+        // cause issues with some GLSL compilers in 330 mode
+        result = result.replaceAll("#line \\d+( \\d+)?\\s*\\n", "");
+        // Slang emits mat4x4/mat3x3 which are valid but some drivers prefer mat4/mat3
+        result = result.replace("mat4x4", "mat4");
+        result = result.replace("mat3x3", "mat3");
         return result;
     }
 

@@ -120,9 +120,9 @@ class IntegrationTest {
         assertTrue(fragmentGlsl.contains("uniform sampler2D m_albedoTex"),
             "Fragment shader should have combined sampler2D for albedoTex");
 
-        // Version should be adjusted
-        assertTrue(vertexGlsl.contains("#version 330"),
-            "Should use GLSL 330");
+        // Version directive should be removed (jME manages it)
+        assertFalse(vertexGlsl.contains("#version"),
+            "Version directive should be removed — jME manages it");
 
         // Vertex attributes should be remapped to jME conventions
         assertTrue(vertexGlsl.contains("inPosition"),

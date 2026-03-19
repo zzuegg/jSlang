@@ -152,7 +152,7 @@ public class SlangMaterialSystem implements AutoCloseable {
         }
 
         // Set dummy shader paths (required by TechniqueDef internals)
-        techniqueDef.setShaderFile(moduleName + ".vert", moduleName + ".frag", "GLSL330", "GLSL330");
+        techniqueDef.setShaderFile(moduleName + ".vert", moduleName + ".frag", "GLSL450", "GLSL450");
 
         // Create custom logic that handles Slang compilation
         var logic = new SlangTechniqueDefLogic(

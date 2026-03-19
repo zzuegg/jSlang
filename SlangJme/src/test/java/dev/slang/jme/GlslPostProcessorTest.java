@@ -136,8 +136,7 @@ class GlslPostProcessorTest {
     void adjustsGlslVersion() {
         var processor = new GlslPostProcessor();
         String result = processor.adjustVersion(VERTEX_GLSL);
-        assertTrue(result.contains("#version 330"));
-        assertFalse(result.contains("#version 450"));
+        assertFalse(result.contains("#version"), "Version directive should be removed (jME manages it)");
         assertFalse(result.contains("layout(column_major)"));
     }
 
@@ -147,7 +146,7 @@ class GlslPostProcessorTest {
         String result = processor.process(FRAGMENT_GLSL,
             Set.of("roughness", "baseColor", "albedoTex"),
             Set.of("WorldViewProjectionMatrix"));
-        assertTrue(result.contains("#version 330"));
+        assertFalse(result.contains("#version"), "Version directive should be removed");
         assertTrue(result.contains("uniform sampler2D m_albedoTex;"));
         assertTrue(result.contains("m_roughness"));
         assertTrue(result.contains("m_baseColor"));

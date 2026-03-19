@@ -67,10 +67,10 @@ float4 fragmentMain(VsOut input) : SV_Target {
     // Simple PBR approximation
     float3 H = normalize(V + L);
     float NdotH = max(dot(N, H), 0.0);
-    float spec = pow(NdotH, mix(8.0, 256.0, 1.0 - roughness));
+    float spec = pow(NdotH, lerp(8.0, 256.0, 1.0 - roughness));
 
     float3 diffuse = albedo * NdotL * (1.0 - metallic);
-    float3 specular = float3(spec * mix(0.04, 1.0, metallic));
+    float3 specular = float3(spec * lerp(0.04, 1.0, metallic));
 
     float3 ambient = albedo * 0.1;
     float3 color = ambient + diffuse + specular;
