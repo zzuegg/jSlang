@@ -14,7 +14,7 @@ struct VsOut {
 [shader("vertex")]
 VsOut vertexMain(VsIn input) {
     VsOut o;
-    o.pos = mul(WorldViewProjectionMatrix, float4(input.position, 1.0));
+    o.pos = mul(float4(input.position, 1.0), WorldViewProjectionMatrix);
     return o;
 }
 

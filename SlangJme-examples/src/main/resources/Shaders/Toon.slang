@@ -29,8 +29,8 @@ struct VsOut {
 [shader("vertex")]
 VsOut vertexMain(VsIn input) {
     VsOut o;
-    o.clipPos = mul(WorldViewProjectionMatrix, float4(input.position, 1.0));
-    o.worldNormal = mul((float3x3)WorldMatrix, input.normal);
+    o.clipPos = mul(float4(input.position, 1.0), WorldViewProjectionMatrix);
+    o.worldNormal = mul(input.normal, (float3x3)WorldMatrix);
     o.uv = input.uv;
     return o;
 }
