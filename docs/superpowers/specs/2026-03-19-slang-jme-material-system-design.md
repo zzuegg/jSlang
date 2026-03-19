@@ -6,26 +6,26 @@ A loader/bridge layer that compiles Slang shader modules to GLSL and produces st
 
 - **Auto-generated parameters**: Slang reflection discovers uniforms, textures, samplers → `MatParam` declarations
 - **Auto-generated defines**: Reflection discovers conditional features → define mappings
-- **Runtime define variants**: jME's existing `DefineList` + shader cache handles variant switching
-- **Composable techniques**: Registry of reusable light modes and shadow modes applied to all materials
-- **Slang-level composition**: Modules, imports, interfaces for shader code reuse
+- **Runtime define variants**: Re-compiles Slang per define combination (lazy, cached) since Slang resolves all code at compile time
+- **Generic mode registry**: Register reusable technique modes (light, shadow, depth, glow, etc.) by name — each mode is a Slang module that gets composed as a separate jME TechniqueDef onto every loaded material
+- **Slang-level composition**: Modules, imports, interfaces for shader code reuse within a technique
 
 ## Architecture
 
 ```
 ┌─────────────────────────────────────────────────────┐
 │                   User Code                          │
-│  system.registerLightMode("SinglePass", config)      │
-│  system.registerShadowMode("PCF", config)            │
+│  system.registerMode("Shadow", "PostShadow.slang")   │
+│  system.registerMode("Light", "SPLight.slang")       │
 │  Material mat = system.loadMaterial("PBR.slang")     │
 └──────────────────────┬──────────────────────────────┘
                        │
 ┌──────────────────────▼──────────────────────────────┐
 │              SlangMaterialSystem                     │
-│  - Registry of light modes and shadow modes          │
+│  - Generic mode registry (name → Slang module)       │
 │  - Compiles Slang → GLSL via jSlang                  │
 │  - Reflects parameters → MatParam auto-generation    │
-│  - Assembles TechniqueDefs with registered modes     │
+│  - Assembles TechniqueDefs from registered modes     │
 │  - Produces standard jME MaterialDef                 │
 └──────────────────────┬──────────────────────────────┘
                        │
@@ -39,19 +39,19 @@ A loader/bridge layer that compiles Slang shader modules to GLSL and produces st
 
 ## Module Structure
 
-New Gradle module `SlangJme` in the SlangBindings project:
+New Gradle module `SlangJme` in the SlangBindings project. Add `include("SlangJme")` to `settings.gradle.kts`.
 
 ```
 SlangJme/
 ├── build.gradle.kts              # depends on :api + jme3-core from mavenLocal
 ├── src/main/java/dev/slang/jme/
-│   ├── SlangMaterialSystem.java  # Main entry point, registry, loader
-│   ├── SlangMaterialDef.java     # Builds MaterialDef from compiled Slang
-│   ├── SlangTechniqueConfig.java # Technique configuration (entry points, render state)
-│   ├── LightModeConfig.java      # Registered light mode definition
-│   ├── ShadowModeConfig.java     # Registered shadow mode definition
+│   ├── SlangMaterialSystem.java  # Main entry point, mode registry, loader
+│   ├── ModeConfig.java           # Generic technique mode configuration
+│   ├── SlangTechniqueConfig.java # Per-material technique configuration
 │   ├── ReflectionMapper.java     # Maps Slang reflection → jME MatParams/defines
-│   └── SlangShaderGenerator.java # Compiles Slang module → GLSL source strings
+│   ├── SlangShaderGenerator.java # Compiles Slang module → GLSL source strings
+│   ├── GlslPostProcessor.java   # Uniform prefix renaming, attribute mapping
+│   └── SlangTechniqueDefLogic.java # Custom TechniqueDefLogic for inline GLSL
 └── src/test/java/dev/slang/jme/
     └── ...                       # Tests with full jME runtime
 ```
@@ -60,20 +60,22 @@ SlangJme/
 
 ### 1. SlangMaterialSystem
 
-The central entry point. Holds the jSlang `GlobalSession`, technique registries, and material loading logic.
+The central entry point. Holds the jSlang `GlobalSession`, the generic mode registry, and material loading logic.
 
 ```java
 public class SlangMaterialSystem implements AutoCloseable {
     private final AssetManager assetManager;
     private final GlobalSession globalSession;
-    private final Map<String, LightModeConfig> lightModes;
-    private final Map<String, ShadowModeConfig> shadowModes;
+    private final Map<String, ModeConfig> modes;  // generic registry
+    private final List<String> searchPaths;        // Slang module search paths
 
     public SlangMaterialSystem(AssetManager assetManager);
 
-    // Registry API
-    public void registerLightMode(String name, LightModeConfig config);
-    public void registerShadowMode(String name, ShadowModeConfig config);
+    // Add search paths for Slang module resolution (enables `import`)
+    public void addSearchPath(String path);
+
+    // Generic mode registry
+    public void registerMode(String name, String slangModulePath, ModeConfig config);
 
     // Loading API
     public MaterialDef loadMaterialDef(String slangModulePath, SlangTechniqueConfig config);
@@ -83,57 +85,61 @@ public class SlangMaterialSystem implements AutoCloseable {
 }
 ```
 
-### 2. SlangTechniqueConfig
+### 2. ModeConfig
 
-Describes what the loader should produce for a given material. This is the thin descriptor that bridges Slang shader code with jME-specific concepts.
+A generic technique mode configuration. Covers light modes, shadow modes, depth passes, glow — anything that adds a technique to a material.
 
 ```java
-public class SlangTechniqueConfig {
-    private String vertexEntryPoint;    // default: "vertexMain"
-    private String fragmentEntryPoint;  // default: "fragmentMain"
-    private String lightMode;           // references registered light mode
-    private List<String> shadowModes;   // references registered shadow modes
-    private RenderState renderState;    // optional override
-    private List<String> worldParams;   // e.g., "WorldViewProjectionMatrix"
-    private Map<String, String> additionalDefines; // extra static defines
+public class ModeConfig {
+    private String vertexEntryPoint;              // default: "vertexMain"
+    private String fragmentEntryPoint;            // default: "fragmentMain"
+    private TechniqueDef.LightMode lightMode;     // optional (Disable, SinglePass, etc.)
+    private TechniqueDef.ShadowMode shadowMode;   // optional (Disable, InPass, PostPass)
+    private TechniqueDefLogic logic;              // optional (rendering logic impl)
+    private RenderState renderState;              // optional
+    private List<String> requiredWorldParams;     // e.g., LightPosition, LightColor
+    private Map<String, VarType> implicitDefines; // e.g., NB_LIGHTS → Int
 
-    // Builder pattern
     public static Builder builder() { ... }
 }
 ```
 
-Can be created programmatically or loaded from a descriptor file (future extension).
+Usage:
+```java
+system.registerMode("Light", "Shaders/SinglePassLight.slang", ModeConfig.builder()
+    .lightMode(TechniqueDef.LightMode.SinglePass)
+    .logic(new SinglePassLightingLogic())
+    .worldParam("LightPosition")
+    .worldParam("LightColor")
+    .implicitDefine("NB_LIGHTS", VarType.Int)
+    .build());
 
-### 3. LightModeConfig
+system.registerMode("Shadow", "Shaders/PostShadow.slang", ModeConfig.builder()
+    .shadowMode(TechniqueDef.ShadowMode.PostPass)
+    .build());
 
-Registered once, applied to every material that requests this light mode.
+system.registerMode("Depth", "Shaders/DepthPrePass.slang", ModeConfig.builder()
+    .build());
+```
+
+### 3. SlangTechniqueConfig
+
+Per-material configuration. Specifies entry points for the main technique and which registered modes to apply.
 
 ```java
-public class LightModeConfig {
-    private TechniqueDef.LightMode jmeLightMode; // SinglePass, MultiPass, etc.
-    private TechniqueDefLogic logic;              // rendering logic impl
-    private List<String> requiredWorldParams;     // e.g., LightPosition, LightColor
-    private Map<String, VarType> implicitDefines; // e.g., NB_LIGHTS → Int
-    private String shaderPrologue;                // prepended GLSL (light uniforms, etc.)
+public class SlangTechniqueConfig {
+    private String vertexEntryPoint;           // default: "vertexMain"
+    private String fragmentEntryPoint;         // default: "fragmentMain"
+    private List<String> modes;                // registered mode names to apply
+    private RenderState renderState;           // optional override for main technique
+    private List<String> worldParams;          // additional world params
+    private Map<String, String> staticDefines; // defines baked into compilation
+
+    public static Builder builder() { ... }
 }
 ```
 
-### 4. ShadowModeConfig
-
-Registered once, adds a shadow technique to every material.
-
-```java
-public class ShadowModeConfig {
-    private TechniqueDef.ShadowMode jmeShadowMode; // InPass, PostPass
-    private String slangModulePath;                 // Slang module for shadow pass
-    private String vertexEntryPoint;
-    private String fragmentEntryPoint;
-    private RenderState renderState;
-    private List<String> requiredWorldParams;
-}
-```
-
-### 5. ReflectionMapper
+### 4. ReflectionMapper
 
 Maps Slang reflection metadata to jME material constructs.
 
@@ -145,10 +151,10 @@ public class ReflectionMapper {
     // Maps Slang type → jME VarType
     public VarType mapType(TypeReflection type);
 
-    // Extracts world parameter bindings (recognized uniform names)
+    // Identifies world parameter bindings by name convention
     public List<UniformBinding> extractWorldBindings(ProgramLayout layout);
 
-    // Generates define mappings for boolean/toggle parameters
+    // Generates define mappings for boolean/texture/int parameters
     public Map<String, DefineMapping> extractDefines(ProgramLayout layout);
 }
 ```
@@ -185,124 +191,180 @@ Uniforms with names matching jME's `UniformBinding` enum are automatically mappe
 
 Convention: world parameters use jME binding names in the Slang shader. Material parameters use any other name.
 
-### 6. SlangShaderGenerator
+### 5. SlangShaderGenerator
 
 Compiles a Slang module and extracts GLSL source for each entry point.
 
 ```java
 public class SlangShaderGenerator {
-    // Compiles Slang → GLSL, returns source strings per stage
+    // Compiles Slang → GLSL with a given set of preprocessor defines
     public ShaderSources compile(Session session, String modulePath,
-                                  String vertexEntry, String fragmentEntry);
+                                  String vertexEntry, String fragmentEntry,
+                                  Map<String, String> defines);
 
     // Returns compiled GLSL + reflection data
     public CompilationResult compileWithReflection(Session session, String modulePath,
-                                                     String vertexEntry, String fragmentEntry);
+                                                     String vertexEntry, String fragmentEntry,
+                                                     Map<String, String> defines);
 }
 
 public record ShaderSources(String vertexGlsl, String fragmentGlsl) {}
-
 public record CompilationResult(ShaderSources sources, ProgramLayout layout) {}
 ```
+
+### 6. GlslPostProcessor
+
+Post-processes the GLSL output from Slang to conform to jME conventions.
+
+```java
+public class GlslPostProcessor {
+    // Renames uniforms: baseColor → m_baseColor, WorldViewProjectionMatrix → g_WorldViewProjectionMatrix
+    public String addUniformPrefixes(String glsl, List<MatParamMapping> materialParams,
+                                      List<UniformBinding> worldParams);
+
+    // Maps Slang vertex attribute semantics to jME attribute names
+    // POSITION → inPosition, NORMAL → inNormal, TEXCOORD0 → inTexCoord, etc.
+    public String remapAttributes(String glsl);
+}
+```
+
+**Attribute Mapping Table:**
+
+| Slang Semantic | jME Attribute Name |
+|---|---|
+| `POSITION` / `SV_Position` | `inPosition` |
+| `NORMAL` | `inNormal` |
+| `TANGENT` | `inTangent` |
+| `TEXCOORD0` | `inTexCoord` |
+| `TEXCOORD1` | `inTexCoord2` |
+| `COLOR0` | `inColor` |
+
+### 7. SlangTechniqueDefLogic
+
+Custom `TechniqueDefLogic` that provides pre-compiled GLSL to jME's shader system and re-compiles Slang on define changes.
+
+```java
+public class SlangTechniqueDefLogic implements TechniqueDefLogic {
+    private final TechniqueDefLogic delegate;       // optional, e.g. SinglePassLightingLogic
+    private final SlangShaderGenerator generator;
+    private final GlslPostProcessor postProcessor;
+    private final String modulePath;
+    private final String vertexEntry;
+    private final String fragmentEntry;
+    private final Map<DefineList, Shader> shaderCache;  // cached variants
+
+    @Override
+    public Shader makeCurrent(AssetManager am, RenderManager rm,
+                               EnumSet<Caps> caps, LightList lights,
+                               DefineList defines) {
+        // 1. Let delegate update dynamic defines (e.g., light count) if present
+        // 2. Check shaderCache for this DefineList
+        // 3. If cache miss:
+        //    a. Convert DefineList → Slang preprocessor macro map
+        //    b. Re-compile Slang module with those macros
+        //    c. Post-process GLSL (uniform prefixes, attribute mapping)
+        //    d. Create jME Shader object from GLSL source strings
+        //    e. Cache the Shader
+        // 4. Return the Shader
+    }
+
+    @Override
+    public void render(RenderManager rm, Shader shader,
+                        Geometry geometry, LightList lights,
+                        BindUnits lastBindUnits) {
+        // Delegate to wrapped logic, or default render
+        if (delegate != null) {
+            delegate.render(rm, shader, geometry, lights, lastBindUnits);
+        } else {
+            DefaultTechniqueDefLogic.renderMeshFromGeometry(rm, geometry);
+        }
+    }
+}
+```
+
+**Why re-compile per variant instead of `#ifdef` injection?**
+
+Slang is a full compiler, not a text preprocessor. It resolves all control flow, optimizes dead code, and produces clean GLSL output. `#ifdef` guards are not preserved in the GLSL output. Therefore, each unique set of defines requires a separate Slang compilation. This is the correct approach because:
+
+- Slang compilation is fast (sub-millisecond for typical shaders, proven by project benchmarks)
+- Each variant gets fully optimized dead-code elimination
+- The `shaderCache` ensures each variant is compiled only once
+- This matches jME's existing `definesToShaderMap` caching model
+
+## Module Loading Strategy
+
+Slang modules are located via Slang's search path system, configured to point at jME asset roots:
+
+```java
+SlangMaterialSystem system = new SlangMaterialSystem(assetManager);
+system.addSearchPath("Shaders/");      // relative to asset root
+system.addSearchPath("Common/Shaders/"); // shared shader library
+```
+
+This enables Slang `import` statements to resolve across modules:
+```slang
+// In PBR.slang
+import LightingUtils;  // resolves via search paths
+import BRDFLibrary;
+```
+
+The `SlangMaterialSystem` reads Slang source files from jME's `AssetManager` (using `assetManager.loadAsset()` to get the source text), then passes them to Slang via `session.loadModuleFromSourceString()`. Search paths are also registered with the Slang `Session` so that `import` resolution works for transitive dependencies.
 
 ## Material Loading Flow
 
 ```
 loadMaterial("PBR.slang", config)
   │
-  ├─ 1. Create jSlang Session with GLSL target
+  ├─ 1. Create jSlang Session with GLSL target + search paths
   │
-  ├─ 2. Load Slang module from asset path
-  │     session.loadModuleFromSourceString(...) or loadModule(...)
+  ├─ 2. Read Slang source via AssetManager, load into Slang session
   │
   ├─ 3. Find entry points (config.vertexEntryPoint, config.fragmentEntryPoint)
   │
-  ├─ 4. Create composite component type → link → extract GLSL
+  ├─ 4. Compile with empty defines (base variant) + extract reflection
   │     SlangShaderGenerator.compileWithReflection(...)
   │
   ├─ 5. Reflect on compiled program
-  │     ReflectionMapper.extractParameters(layout)
-  │     ReflectionMapper.extractWorldBindings(layout)
-  │     ReflectionMapper.extractDefines(layout)
+  │     ├─ ReflectionMapper.extractParameters(layout)     → MatParams
+  │     ├─ ReflectionMapper.extractWorldBindings(layout)  → UniformBindings
+  │     └─ ReflectionMapper.extractDefines(layout)        → define mappings
   │
   ├─ 6. Build MaterialDef
   │     ├─ Create MaterialDef(assetManager, name)
   │     ├─ Add auto-discovered MatParams (non-world uniforms)
-  │     ├─ Build main TechniqueDef:
-  │     │   ├─ Set GLSL source (inline, not file path)
-  │     │   ├─ Set light mode from registered LightModeConfig
-  │     │   ├─ Set TechniqueDefLogic from LightModeConfig
-  │     │   ├─ Add world params (auto-discovered + light mode required)
+  │     ├─ Build main TechniqueDef ("Default"):
+  │     │   ├─ Create SlangTechniqueDefLogic (handles re-compilation + caching)
+  │     │   ├─ Add world params (auto-discovered)
   │     │   ├─ Add define mappings (param → define)
   │     │   ├─ Set render state
-  │     │   └─ Set shader prologue from LightModeConfig
-  │     ├─ For each registered shadow mode in config:
-  │     │   ├─ Compile shadow Slang module → GLSL
-  │     │   ├─ Build shadow TechniqueDef
-  │     │   └─ Add to MaterialDef
-  │     └─ materialDef.addTechniqueDef(...)
+  │     │   └─ Set light mode (Disable by default, or from a referenced mode)
+  │     ├─ For each mode in config.modes:
+  │     │   ├─ Look up ModeConfig from registry
+  │     │   ├─ Compile mode's Slang module → base GLSL
+  │     │   ├─ Build TechniqueDef with mode's config (light mode, shadow mode, etc.)
+  │     │   ├─ Create SlangTechniqueDefLogic for the mode
+  │     │   └─ materialDef.addTechniqueDef(...)
+  │     └─ Return MaterialDef
   │
-  └─ 7. Return MaterialDef (or wrap in Material)
+  └─ 7. Wrap in Material, return
 ```
 
-## Inline Shader Sources
+## Error Handling
 
-jME's `TechniqueDef.setShaderFile()` expects asset paths. Since we compile Slang → GLSL at load time and get source strings (not files), we need one of:
-
-**Option A: Virtual asset registration** — Register compiled GLSL as virtual assets in jME's AssetManager, then reference them by synthetic path.
-
-**Option B: Custom TechniqueDefLogic** — Override `makeCurrent()` to supply pre-compiled shader objects directly, bypassing the asset-based shader loading.
-
-**Option C: Temp file approach** — Write GLSL to temp files, register path. Simple but inelegant.
-
-**Recommendation: Option B** — A custom `SlangTechniqueDefLogic` that wraps the existing logic implementations (SinglePassLightingLogic, etc.) but supplies the GLSL source directly rather than loading from assets. This gives us full control over shader creation while delegating the rendering logic to jME's existing implementations.
-
-```java
-public class SlangTechniqueDefLogic implements TechniqueDefLogic {
-    private final TechniqueDefLogic delegate;  // e.g., SinglePassLightingLogic
-    private final ShaderSources sources;
-
-    @Override
-    public Shader makeCurrent(AssetManager am, RenderManager rm,
-                               EnumSet<Caps> caps, LightList lights,
-                               DefineList defines) {
-        // Build Shader from pre-compiled GLSL sources + current defines
-        // Delegate render() to the wrapped logic
-    }
-}
-```
-
-## Define System Integration
-
-Slang parameters that map to jME defines work as follows:
-
-1. **Boolean parameters** → `addShaderParamDefine(paramName, VarType.Boolean, "HAS_" + paramName.toUpperCase())`
-   - e.g., Slang `bool useNormalMap` → define `HAS_USENORMALMAP`
-
-2. **Texture parameters** → `addShaderParamDefine(paramName, VarType.Texture2D, "HAS_" + paramName.toUpperCase())`
-   - Presence of texture triggers the define
-
-3. **Int/enum parameters** → `addShaderParamDefine(paramName, VarType.Int, paramName.toUpperCase())`
-   - Integer value passed as define value (for multi-mode switches)
-
-The generated GLSL from Slang should use `#ifdef` / `#if` guards that match these define names. This requires a convention in the Slang source — parameters that should act as defines need corresponding `#ifdef` guards in the compiled GLSL output. Slang's preprocessor support handles this.
-
-## Uniform Naming Convention
-
-jME prefixes material uniforms with `m_` and world uniforms with `g_`. Slang shaders should use unprefixed names:
-
-- Slang: `float3 baseColor` → jME uniform: `m_baseColor`
-- Slang: `float4x4 WorldViewProjectionMatrix` → jME uniform: `g_WorldViewProjectionMatrix`
-
-The `ReflectionMapper` handles the prefix mapping. The compiled GLSL output may need post-processing to add these prefixes, or the `SlangTechniqueDefLogic` handles the mapping at bind time.
+- **Slang compilation errors**: `SlangException` is caught and wrapped in a jME-friendly exception (`SlangMaterialException`) with the module path, entry point, and Slang diagnostic message. Logged via jME's `Logger`.
+- **Missing modes**: Referencing an unregistered mode name throws `IllegalArgumentException` at load time.
+- **Type mapping failures**: Unknown Slang types log a warning and are skipped (the parameter is not added to the MaterialDef).
+- **Missing modules**: If the Slang source cannot be found via AssetManager, `AssetNotFoundException` propagates as usual.
 
 ## Example Usage
 
 ```java
 // Setup (once at app init)
 SlangMaterialSystem slang = new SlangMaterialSystem(assetManager);
+slang.addSearchPath("Shaders/");
 
-slang.registerLightMode("SinglePass", LightModeConfig.builder()
+// Register reusable modes
+slang.registerMode("Light", "Techniques/SinglePassLight.slang", ModeConfig.builder()
     .lightMode(TechniqueDef.LightMode.SinglePass)
     .logic(new SinglePassLightingLogic())
     .worldParam("LightPosition")
@@ -311,23 +373,24 @@ slang.registerLightMode("SinglePass", LightModeConfig.builder()
     .implicitDefine("NB_LIGHTS", VarType.Int)
     .build());
 
-slang.registerShadowMode("PostShadow", ShadowModeConfig.builder()
+slang.registerMode("Shadow", "Techniques/PostShadow.slang", ModeConfig.builder()
     .shadowMode(TechniqueDef.ShadowMode.PostPass)
-    .slangModule("Shaders/Shadow/PostShadow.slang")
-    .vertexEntry("vsMain")
-    .fragmentEntry("fsMain")
     .build());
 
-// Load a material
-Material pbr = slang.loadMaterial("Shaders/PBR.slang",
+slang.registerMode("Depth", "Techniques/DepthPrePass.slang", ModeConfig.builder()
+    .build());
+
+// Load a material — gets Light + Shadow + Depth techniques automatically
+Material pbr = slang.loadMaterial("Materials/PBR.slang",
     SlangTechniqueConfig.builder()
         .vertexEntry("vsMain")
         .fragmentEntry("fsMain")
-        .lightMode("SinglePass")
-        .shadowMode("PostShadow")
+        .mode("Light")
+        .mode("Shadow")
+        .mode("Depth")
         .build());
 
-// Use like any jME material
+// Use like any jME material — parameters auto-discovered from reflection
 pbr.setTexture("albedoTex", albedoTexture);
 pbr.setFloat("roughness", 0.5f);
 pbr.setFloat("metallic", 0.0f);
@@ -342,6 +405,11 @@ dependencies {
     implementation(project(":api"))
     compileOnly("org.jmonkeyengine:jme3-core:3.10.0-local")
 }
+
+repositories {
+    mavenLocal()
+    mavenCentral()
+}
 ```
 
 **Test configuration:**
@@ -354,24 +422,14 @@ dependencies {
 }
 ```
 
-**Repositories:**
-```kotlin
-repositories {
-    mavenLocal()
-    mavenCentral()
-}
-```
-
 ## Open Questions / Future Work
 
-1. **GLSL post-processing**: The compiled GLSL from Slang may need uniform name prefixing (`m_`, `g_`), `#ifdef` injection for defines, or GLSL version/extension header adjustments. Extent of post-processing TBD during implementation.
+1. **Descriptor file format**: Currently technique config is programmatic. A `.slangmat` JSON descriptor could be added later for asset-pipeline workflows.
 
-2. **Descriptor file format**: Currently technique config is programmatic. A `.slangmat` JSON/YAML descriptor could be added later for asset-pipeline workflows.
+2. **Compute shader support**: The `SlangTechniqueConfig` could support compute entry points, producing compute-only techniques via the custom jME fork's compute support.
 
-3. **Compute shader support**: The `SlangTechniqueConfig` could support compute entry points, producing compute-only techniques. Your jME fork already has compute support.
+3. **Disk caching**: If Slang re-compilation per variant becomes a bottleneck, compiled GLSL + reflection data could be serialized to disk for faster subsequent loads.
 
-4. **Shader caching**: Currently compile-at-load. If load times become an issue, compiled GLSL + reflection data could be cached to disk.
+4. **AssetLoader integration**: A jME `AssetLoader` implementation could be registered for `.slang` files, enabling `assetManager.loadAsset("Materials/PBR.slang")`.
 
-5. **AssetLoader integration**: A jME `AssetLoader` implementation (`SlangLoader`) could be registered for `.slang` files, enabling `assetManager.loadAsset("Materials/PBR.slang")`. Requires a way to pass technique config through the asset system.
-
-6. **Bindless texture support**: Your jME fork has bindless textures. The reflection mapper could detect bindless-compatible parameters and generate appropriate bindings.
+5. **Bindless texture support**: The reflection mapper could detect bindless-compatible parameters and generate appropriate bindings for the custom jME fork.
