@@ -1,0 +1,8 @@
+SlangMaterial {
+    MaterialDef: Shaders/PBR.slang
+
+    Float roughness: 0.3
+    Float metallic: 0.0
+    Vector3 baseColor: 0.8 0.2 0.2
+    Boolean useNormalMap: false
+}

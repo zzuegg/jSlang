@@ -18,6 +18,8 @@ public class SlangMaterialSystem implements AutoCloseable {
     private static final Logger log = Logger.getLogger(SlangMaterialSystem.class.getName());
     private static final AtomicInteger TECHNIQUE_SORT_ID = new AtomicInteger(0);
 
+    private static volatile SlangMaterialSystem instance;
+
     private final AssetManager assetManager;
     private final GlobalSession globalSession;
     private final SlangShaderGenerator generator;
@@ -27,6 +29,30 @@ public class SlangMaterialSystem implements AutoCloseable {
     private final Map<String, RegisteredMode> modes = new LinkedHashMap<>();
 
     private record RegisteredMode(String sourceCode, ModeConfig config) {}
+
+    /**
+     * Returns the singleton instance, creating it if necessary.
+     */
+    public static SlangMaterialSystem getInstance(AssetManager assetManager) {
+        if (instance == null) {
+            synchronized (SlangMaterialSystem.class) {
+                if (instance == null) {
+                    instance = new SlangMaterialSystem(assetManager);
+                }
+            }
+        }
+        return instance;
+    }
+
+    /**
+     * Registers the Slang asset loaders (.slang and .slangmat) with the given AssetManager
+     * and initializes the singleton instance.
+     */
+    public static SlangMaterialSystem initialize(AssetManager assetManager) {
+        assetManager.registerLoader(SlangMaterialDefLoader.class, "slang");
+        assetManager.registerLoader(SlangMaterialLoader.class, "slangmat");
+        return getInstance(assetManager);
+    }
 
     public SlangMaterialSystem(AssetManager assetManager) {
         this.assetManager = assetManager;

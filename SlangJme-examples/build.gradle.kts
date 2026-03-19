@@ -29,3 +29,9 @@ tasks.register<JavaExec>("debugShaderOutput") {
     classpath = sourceSets["main"].runtimeClasspath
     jvmArgs("--enable-preview", "--enable-native-access=ALL-UNNAMED")
 }
+
+tasks.register<JavaExec>("runAssetLoaderDemo") {
+    mainClass.set("dev.slang.jme.examples.AssetLoaderDemo")
+    classpath = sourceSets["main"].runtimeClasspath
+    jvmArgs("--enable-preview", "--enable-native-access=ALL-UNNAMED")
+}
