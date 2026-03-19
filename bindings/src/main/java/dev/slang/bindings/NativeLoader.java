@@ -31,6 +31,15 @@ public final class NativeLoader {
 
         try (InputStream in = NativeLoader.class.getResourceAsStream(resourcePath)) {
             if (in == null) {
+                // Try java.library.path directories for the native library
+                String libPath = System.getProperty("java.library.path", "");
+                for (String dir : libPath.split(java.io.File.pathSeparator)) {
+                    if (dir.isEmpty()) continue;
+                    Path candidate = Path.of(dir, libName);
+                    if (java.nio.file.Files.exists(candidate)) {
+                        return SymbolLookup.libraryLookup(candidate, Arena.global());
+                    }
+                }
                 // Fall back to system library path
                 return SymbolLookup.libraryLookup(System.mapLibraryName("slang"), Arena.global());
             }
