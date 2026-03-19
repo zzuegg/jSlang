@@ -140,6 +140,14 @@ public class GlslPostProcessor {
         result = result.replace("layout(column_major) buffer;\n", "");
         // Remove layout(binding = N) from remaining declarations
         result = result.replaceAll("layout\\(binding = \\d+\\)\\s*\\n", "");
+        // Remove layout(location = N) ONLY from vertex attribute inputs (jME names).
+        // jME binds vertex attributes by name via glBindAttribLocation, so explicit
+        // locations cause mismatches. Keep locations on varyings (out and fragment in)
+        // since Slang generates different names between vertex out and fragment in.
+        for (String attrName : ATTRIBUTE_MAP.values()) {
+            result = result.replaceAll(
+                "layout\\(location = \\d+\\)\\s*\\n(?=in \\S+ " + attrName + ";)", "");
+        }
         // Remove #line directives — Slang emits #line N M format which can
         // cause issues with some GLSL compilers in 330 mode
         result = result.replaceAll("#line \\d+( \\d+)?\\s*\\n", "");
