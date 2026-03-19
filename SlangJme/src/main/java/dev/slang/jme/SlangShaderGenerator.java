@@ -1,5 +1,6 @@
 package dev.slang.jme;
 
+import com.jme3.shader.UniformBinding;
 import dev.slang.api.*;
 import dev.slang.api.reflect.ProgramLayout;
 import dev.slang.bindings.enums.CompileTarget;
@@ -12,13 +13,27 @@ import java.util.Map;
 public class SlangShaderGenerator {
 
     public record ShaderSources(String vertexGlsl, String fragmentGlsl) {}
-    public record CompilationResult(ShaderSources sources, ProgramLayout layout) {}
+
+    /**
+     * Pre-extracted reflection data that is safe to use after the Slang session is closed.
+     * ProgramLayout holds a raw native pointer that becomes invalid after session close,
+     * so we extract all needed data eagerly.
+     */
+    public record ReflectionData(
+        List<ReflectionMapper.MatParamMapping> materialParams,
+        List<UniformBinding> worldBindings,
+        Map<String, ReflectionMapper.DefineMapping> defines
+    ) {}
+
+    public record CompilationResult(ShaderSources sources, ReflectionData reflection) {}
 
     private final GlobalSession globalSession;
+    private final ReflectionMapper reflectionMapper;
     private final int glslProfile;
 
     public SlangShaderGenerator(GlobalSession globalSession) {
         this.globalSession = globalSession;
+        this.reflectionMapper = new ReflectionMapper();
         this.glslProfile = globalSession.findProfile("glsl_450");
     }
 
@@ -64,9 +79,16 @@ public class SlangShaderGenerator {
                 fragmentGlsl = new String(blob.toByteArray(), StandardCharsets.UTF_8);
             }
 
+            // Extract all reflection data NOW while the session/layout is still alive.
+            // ProgramLayout holds a raw native pointer that becomes dangling after session close.
             ProgramLayout layout = linked.getLayout(0);
+            var materialParams = reflectionMapper.extractParameters(layout);
+            var worldBindings = reflectionMapper.extractWorldBindings(layout);
+            var extractedDefines = reflectionMapper.extractDefines(layout);
+
             return new CompilationResult(
-                new ShaderSources(vertexGlsl, fragmentGlsl), layout);
+                new ShaderSources(vertexGlsl, fragmentGlsl),
+                new ReflectionData(materialParams, worldBindings, extractedDefines));
         }
     }
 }

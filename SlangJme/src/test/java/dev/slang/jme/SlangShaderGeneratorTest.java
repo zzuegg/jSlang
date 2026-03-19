@@ -106,7 +106,7 @@ class SlangShaderGeneratorTest {
         var generator = new SlangShaderGenerator(global);
         var result = generator.compileWithReflection("test", SHADER,
             "vertexMain", "fragmentMain", Map.of(), java.util.List.of());
-        assertNotNull(result.layout());
-        assertTrue(result.layout().parameterCount() > 0);
+        assertNotNull(result.reflection());
+        assertFalse(result.reflection().materialParams().isEmpty());
     }
 }
