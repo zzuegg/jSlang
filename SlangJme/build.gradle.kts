@@ -5,6 +5,7 @@ repositories {
 
 dependencies {
     implementation(project(":api"))
+    implementation(project(":bindings"))
     compileOnly("org.jmonkeyengine:jme3-core:3.10.0-local")
 
     testImplementation("org.jmonkeyengine:jme3-core:3.10.0-local")
