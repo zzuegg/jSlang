@@ -7,3 +7,4 @@ rootProject.name = "SlangBindings"
 include("bindings")
 include("api")
 include("SlangJme")
+include("SlangJme-examples")
