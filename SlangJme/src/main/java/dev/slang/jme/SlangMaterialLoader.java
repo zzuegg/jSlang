@@ -9,9 +9,12 @@ import com.jme3.math.Vector4f;
 import com.jme3.texture.Texture;
 
 import java.io.BufferedReader;
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.net.URISyntaxException;
+import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
@@ -74,14 +77,11 @@ public class SlangMaterialLoader implements AssetLoader {
             throw new IOException("No MaterialDef specified in " + key);
         }
 
-        // Load the shader source
-        String shaderSource;
-        try (InputStream in = assetManager.locateAsset(new AssetKey<>(materialDefPath)).openStream()) {
-            shaderSource = new String(in.readAllBytes(), StandardCharsets.UTF_8);
-        }
-
-        // Build MaterialDef with specializations
+        // Resolve search path for Slang import resolution
         var system = SlangMaterialSystem.getInstance(assetManager);
+        String shaderDir = resolveShaderDirectory(materialDefPath);
+
+        // Build config with specializations
         var configBuilder = SlangTechniqueConfig.builder();
         for (String type : specializationTypes) {
             configBuilder.specialize(type);
@@ -89,8 +89,26 @@ public class SlangMaterialLoader implements AssetLoader {
 
         Material material;
         try {
-            material = system.loadMaterialFromSource(
-                key.getName(), shaderSource, configBuilder.build());
+            if (shaderDir != null) {
+                // Load by module name from filesystem — enables import resolution
+                system.addSearchPath(shaderDir);
+                String moduleName = materialDefPath;
+                // Strip path prefix and .slang extension to get module name
+                int lastSlash = moduleName.lastIndexOf('/');
+                if (lastSlash >= 0) moduleName = moduleName.substring(lastSlash + 1);
+                if (moduleName.endsWith(".slang")) moduleName = moduleName.substring(0, moduleName.length() - 6);
+
+                material = system.loadMaterialFromModule(
+                    key.getName(), moduleName, configBuilder.build());
+            } else {
+                // Fallback: load from source string (no import support)
+                String shaderSource;
+                try (InputStream in = assetManager.locateAsset(new AssetKey<>(materialDefPath)).openStream()) {
+                    shaderSource = new String(in.readAllBytes(), StandardCharsets.UTF_8);
+                }
+                material = system.loadMaterialFromSource(
+                    key.getName(), shaderSource, configBuilder.build());
+            }
         } catch (Exception e) {
             throw new IOException("Failed to compile Slang material: " + key, e);
         }
@@ -158,5 +176,18 @@ public class SlangMaterialLoader implements AssetLoader {
             result[i] = Float.parseFloat(parts[i]);
         }
         return result;
+    }
+
+    private String resolveShaderDirectory(String resourcePath) {
+        URL url = getClass().getClassLoader().getResource(resourcePath);
+        if (url != null && "file".equals(url.getProtocol())) {
+            try {
+                File file = new File(url.toURI());
+                return file.getParent();
+            } catch (URISyntaxException e) {
+                log.log(Level.FINE, "Could not resolve shader directory for: " + resourcePath, e);
+            }
+        }
+        return null;
     }
 }

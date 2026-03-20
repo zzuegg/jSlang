@@ -48,9 +48,10 @@ public class SlangShaderGenerator {
     public ShaderSources compileSpecialized(String moduleName, String sourceCode,
                                              String vertexEntry, String fragmentEntry,
                                              Map<String, String> defines,
+                                             List<String> searchPaths,
                                              List<String> specializationTypes) throws SlangException {
         return compileWithReflection(moduleName, sourceCode, vertexEntry, fragmentEntry,
-            defines, List.of(), specializationTypes).sources();
+            defines, searchPaths, specializationTypes).sources();
     }
 
     public CompilationResult compileWithReflection(String moduleName, String sourceCode,
@@ -79,8 +80,17 @@ public class SlangShaderGenerator {
         }
 
         try (var session = globalSession.createSession(builder)) {
-            var module = session.loadModuleFromSourceString(
-                moduleName, moduleName + ".slang", sourceCode);
+            // If search paths are set and no source provided, load by module name
+            // so Slang resolves imports from the search paths.
+            // If source is provided but search paths exist, still use source string
+            // but Slang will resolve imports from search paths.
+            dev.slang.api.Module module;
+            if (sourceCode == null) {
+                module = session.loadModule(moduleName);
+            } else {
+                module = session.loadModuleFromSourceString(
+                    moduleName, moduleName + ".slang", sourceCode);
+            }
 
             var vsEp = module.findAndCheckEntryPoint(vertexEntry, Stage.VERTEX);
             var fsEp = module.findAndCheckEntryPoint(fragmentEntry, Stage.FRAGMENT);

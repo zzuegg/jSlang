@@ -3,72 +3,16 @@
 // Generic type parameters:
 //   B : IBRDF         — controls surface shading model
 //   N : INormalSource  — controls normal mapping strategy
+//
+// Implementations are in separate files and resolved via import.
 
-// --- Interfaces ---
-
-interface IBRDF {
-    float3 evaluate(float3 N, float3 V, float3 L, float3 albedo);
-};
-
-interface INormalSource {
-    float3 getNormal(float3 worldNormal);
-};
-
-// --- BRDF Implementations ---
-
-struct LambertBRDF : IBRDF {
-    float3 evaluate(float3 N, float3 V, float3 L, float3 albedo) {
-        float NdotL = max(dot(N, L), 0.0);
-        return albedo * NdotL;
-    }
-};
-
-struct BlinnPhongBRDF : IBRDF {
-    float3 evaluate(float3 N, float3 V, float3 L, float3 albedo) {
-        float NdotL = max(dot(N, L), 0.0);
-        float3 H = normalize(V + L);
-        float NdotH = max(dot(N, H), 0.0);
-        float spec = pow(NdotH, 64.0);
-        return albedo * NdotL + float3(spec);
-    }
-};
-
-struct CookTorranceBRDF : IBRDF {
-    float3 evaluate(float3 N, float3 V, float3 L, float3 albedo) {
-        float NdotL = max(dot(N, L), 0.0);
-        float3 H = normalize(V + L);
-        float NdotH = max(dot(N, H), 0.0);
-        float NdotV = max(dot(N, V), 0.001);
-
-        // Simplified GGX
-        float roughness = 0.5;
-        float a = roughness * roughness;
-        float a2 = a * a;
-        float denom = NdotH * NdotH * (a2 - 1.0) + 1.0;
-        float D = a2 / (3.14159 * denom * denom);
-
-        float3 diffuse = albedo * NdotL * (1.0 / 3.14159);
-        float3 specular = float3(D * 0.04 * NdotL);
-
-        return diffuse + specular;
-    }
-};
-
-// --- Normal Source Implementations ---
-
-struct FlatNormal : INormalSource {
-    float3 getNormal(float3 worldNormal) {
-        return normalize(worldNormal);
-    }
-};
-
-struct HemisphereNormal : INormalSource {
-    float3 getNormal(float3 worldNormal) {
-        // Blend normal toward up direction for a soft hemisphere look
-        float3 N = normalize(worldNormal);
-        return normalize(N + float3(0, 0.3, 0));
-    }
-};
+import IBRDF;
+import INormalSource;
+import LambertBRDF;
+import BlinnPhongBRDF;
+import CookTorranceBRDF;
+import FlatNormal;
+import HemisphereNormal;
 
 // --- World / Material Uniforms ---
 

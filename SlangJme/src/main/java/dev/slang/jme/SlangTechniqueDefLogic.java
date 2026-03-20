@@ -31,6 +31,7 @@ public class SlangTechniqueDefLogic implements TechniqueDefLogic {
     private final String vertexEntry;
     private final String fragmentEntry;
     private final List<String> specializationTypes;
+    private final List<String> searchPaths;
     private final Map<String, Shader> shaderCache = new ConcurrentHashMap<>();
 
     private Set<String> materialParamNames;
@@ -43,7 +44,7 @@ public class SlangTechniqueDefLogic implements TechniqueDefLogic {
                                    String moduleName, String sourceCode,
                                    String vertexEntry, String fragmentEntry) {
         this(techniqueDef, delegate, generator, postProcessor,
-             moduleName, sourceCode, vertexEntry, fragmentEntry, List.of());
+             moduleName, sourceCode, vertexEntry, fragmentEntry, List.of(), List.of());
     }
 
     public SlangTechniqueDefLogic(TechniqueDef techniqueDef,
@@ -52,7 +53,8 @@ public class SlangTechniqueDefLogic implements TechniqueDefLogic {
                                    GlslPostProcessor postProcessor,
                                    String moduleName, String sourceCode,
                                    String vertexEntry, String fragmentEntry,
-                                   List<String> specializationTypes) {
+                                   List<String> specializationTypes,
+                                   List<String> searchPaths) {
         this.techniqueDef = techniqueDef;
         this.delegate = delegate;
         this.generator = generator;
@@ -62,6 +64,7 @@ public class SlangTechniqueDefLogic implements TechniqueDefLogic {
         this.vertexEntry = vertexEntry;
         this.fragmentEntry = fragmentEntry;
         this.specializationTypes = specializationTypes;
+        this.searchPaths = searchPaths;
     }
 
     public void setParamNames(Set<String> materialParamNames, Set<String> worldParamNames) {
@@ -87,10 +90,15 @@ public class SlangTechniqueDefLogic implements TechniqueDefLogic {
         Map<String, String> macros = defineListToMacros(defines);
 
         try {
+            // Use the original module name for module-based loading (sourceCode == null),
+            // append variant suffix only for source-string loading to avoid name collisions
+            String compileModuleName = sourceCode == null
+                ? moduleName
+                : moduleName + "_v" + shaderCache.size();
             var result = generator.compileSpecialized(
-                moduleName + "_v" + shaderCache.size(),
+                compileModuleName,
                 sourceCode, vertexEntry, fragmentEntry, macros,
-                specializationTypes);
+                searchPaths, specializationTypes);
 
             // Post-process GLSL
             String vertexGlsl = result.vertexGlsl();

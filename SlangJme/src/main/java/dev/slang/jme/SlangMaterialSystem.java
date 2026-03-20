@@ -25,6 +25,7 @@ public class SlangMaterialSystem implements AutoCloseable {
     private final SlangShaderGenerator generator;
     private final GlslPostProcessor postProcessor;
     private final List<String> searchPaths = new ArrayList<>();
+    private final java.util.Set<String> searchPathSet = new java.util.HashSet<>();
 
     private final Map<String, RegisteredMode> modes = new LinkedHashMap<>();
 
@@ -62,7 +63,9 @@ public class SlangMaterialSystem implements AutoCloseable {
     }
 
     public void addSearchPath(String path) {
-        searchPaths.add(path);
+        if (searchPathSet.add(path)) {
+            searchPaths.add(path);
+        }
     }
 
     public void registerModeFromSource(String name, String sourceCode, ModeConfig config) {
@@ -71,9 +74,14 @@ public class SlangMaterialSystem implements AutoCloseable {
 
     public MaterialDef loadMaterialDefFromSource(String name, String sourceCode,
                                                    SlangTechniqueConfig config) throws SlangException {
+        return loadMaterialDefInternal(name, name, sourceCode, config);
+    }
+
+    private MaterialDef loadMaterialDefInternal(String name, String moduleName, String sourceCode,
+                                                  SlangTechniqueConfig config) throws SlangException {
         // 1. Compile with static defines and specializations to get reflection data
         var result = generator.compileWithReflection(
-            name, sourceCode,
+            moduleName, sourceCode,
             config.vertexEntryPoint(), config.fragmentEntryPoint(),
             config.staticDefines(), searchPaths,
             config.specializationTypes());
@@ -95,7 +103,7 @@ public class SlangMaterialSystem implements AutoCloseable {
         }
 
         // 4. Build main technique ("Default")
-        var mainTechnique = buildTechniqueDef("Default", name, sourceCode,
+        var mainTechnique = buildTechniqueDef("Default", moduleName, sourceCode,
             config.vertexEntryPoint(), config.fragmentEntryPoint(),
             materialParams, worldBindings, defines, config, null);
         matDef.addTechniqueDef(mainTechnique);
@@ -117,6 +125,22 @@ public class SlangMaterialSystem implements AutoCloseable {
                                             SlangTechniqueConfig config) throws SlangException {
         MaterialDef matDef = loadMaterialDefFromSource(name, sourceCode, config);
         return new Material(matDef);
+    }
+
+    /**
+     * Loads a material by module name from the configured search paths.
+     * This enables Slang import resolution for modular shader files.
+     */
+    public Material loadMaterialFromModule(String name, String moduleName,
+                                            SlangTechniqueConfig config) throws SlangException {
+        MaterialDef matDef = loadMaterialDefFromModule(name, moduleName, config);
+        return new Material(matDef);
+    }
+
+    public MaterialDef loadMaterialDefFromModule(String name, String moduleName,
+                                                   SlangTechniqueConfig config) throws SlangException {
+        // Pass null source to signal module-based loading
+        return loadMaterialDefInternal(name, moduleName, null, config);
     }
 
     @Override
@@ -187,7 +211,7 @@ public class SlangMaterialSystem implements AutoCloseable {
             modeConfig != null ? modeConfig.logic() : null,
             generator, postProcessor,
             moduleName, sourceCode, vertexEntry, fragmentEntry,
-            config.specializationTypes());
+            config.specializationTypes(), List.copyOf(searchPaths));
         logic.setParamNames(matParamNames, worldParamNames);
         techniqueDef.setLogic(logic);
 
