@@ -24,18 +24,23 @@ import java.util.logging.Logger;
 /**
  * Loads Slang material instance files (.slangmat).
  *
- * <p>Format:
+ * <p>Supports two forms:
+ *
+ * <p><b>Standalone material:</b>
  * <pre>
  * SlangMaterial {
  *     MaterialDef: Shaders/PBR.slang
- *
  *     Specialize: LambertBRDF
- *     Specialize: FlatNormal
- *
  *     Float roughness: 0.5
  *     Vector3 baseColor: 0.8 0.2 0.2
- *     Boolean useNormalMap: false
- *     Texture2D normalMap: Textures/normal.png
+ * }
+ * </pre>
+ *
+ * <p><b>Inherited material</b> (overrides parent values):
+ * <pre>
+ * SlangMaterial : Materials/PbrDefaults.slangmat {
+ *     Vector3 baseColor: 0.2 0.8 0.2
+ *     Float roughness: 0.8
  * }
  * </pre>
  *
@@ -50,18 +55,30 @@ public class SlangMaterialLoader implements AssetLoader {
         AssetManager assetManager = assetInfo.getManager();
         AssetKey<?> key = assetInfo.getKey();
 
+        String parentPath = null;
         String materialDefPath = null;
         List<String> specializationTypes = new ArrayList<>();
         List<String> parameterLines = new ArrayList<>();
 
-        // First pass: collect MaterialDef path, specializations, and parameter lines
         try (BufferedReader reader = new BufferedReader(
                 new InputStreamReader(assetInfo.openStream(), StandardCharsets.UTF_8))) {
             String line;
             while ((line = reader.readLine()) != null) {
                 line = line.trim();
                 if (line.isEmpty() || line.startsWith("//") || line.startsWith("#")) continue;
-                if (line.equals("SlangMaterial {") || line.equals("}")) continue;
+                if (line.equals("}")) continue;
+
+                // Check for inheritance: "SlangMaterial : Parent/Path.slangmat {"
+                if (line.startsWith("SlangMaterial")) {
+                    if (line.contains(":") && !line.equals("SlangMaterial {")) {
+                        String afterColon = line.substring(line.indexOf(':') + 1).trim();
+                        if (afterColon.endsWith("{")) {
+                            afterColon = afterColon.substring(0, afterColon.length() - 1).trim();
+                        }
+                        parentPath = afterColon;
+                    }
+                    continue;
+                }
 
                 if (line.startsWith("MaterialDef:") || line.startsWith("MaterialDef :")) {
                     materialDefPath = line.substring(line.indexOf(':') + 1).trim();
@@ -73,52 +90,59 @@ public class SlangMaterialLoader implements AssetLoader {
             }
         }
 
-        if (materialDefPath == null) {
-            throw new IOException("No MaterialDef specified in " + key);
-        }
-
-        // Resolve search path for Slang import resolution
-        var system = SlangMaterialSystem.getInstance(assetManager);
-        String shaderDir = resolveShaderDirectory(materialDefPath);
-
-        // Build config with specializations
-        var configBuilder = SlangTechniqueConfig.builder();
-        for (String type : specializationTypes) {
-            configBuilder.specialize(type);
-        }
-
         Material material;
-        try {
-            if (shaderDir != null) {
-                // Load by module name from filesystem — enables import resolution
-                system.addSearchPath(shaderDir);
-                String moduleName = materialDefPath;
-                // Strip path prefix and .slang extension to get module name
-                int lastSlash = moduleName.lastIndexOf('/');
-                if (lastSlash >= 0) moduleName = moduleName.substring(lastSlash + 1);
-                if (moduleName.endsWith(".slang")) moduleName = moduleName.substring(0, moduleName.length() - 6);
 
-                material = system.loadMaterialFromModule(
-                    key.getName(), moduleName, configBuilder.build());
-            } else {
-                // Fallback: load from source string (no import support)
-                String shaderSource;
-                try (InputStream in = assetManager.locateAsset(new AssetKey<>(materialDefPath)).openStream()) {
-                    shaderSource = new String(in.readAllBytes(), StandardCharsets.UTF_8);
-                }
-                material = system.loadMaterialFromSource(
-                    key.getName(), shaderSource, configBuilder.build());
+        if (parentPath != null) {
+            // Inheritance: load parent material, then apply overrides
+            material = assetManager.loadMaterial(parentPath);
+        } else {
+            if (materialDefPath == null) {
+                throw new IOException("No MaterialDef or parent specified in " + key);
             }
-        } catch (Exception e) {
-            throw new IOException("Failed to compile Slang material: " + key, e);
+            material = buildMaterial(assetManager, key, materialDefPath,
+                specializationTypes);
         }
 
-        // Apply parameters
+        // Apply parameter overrides
         for (String line : parameterLines) {
             parseParameter(material, line, assetManager, key);
         }
 
         return material;
+    }
+
+    private Material buildMaterial(AssetManager assetManager, AssetKey<?> key,
+                                    String materialDefPath,
+                                    List<String> specializationTypes) throws IOException {
+        var system = SlangMaterialSystem.getInstance(assetManager);
+        String shaderDir = resolveShaderDirectory(materialDefPath);
+
+        var configBuilder = SlangTechniqueConfig.builder();
+        for (String type : specializationTypes) {
+            configBuilder.specialize(type);
+        }
+
+        try {
+            if (shaderDir != null) {
+                system.addSearchPath(shaderDir);
+                String moduleName = materialDefPath;
+                int lastSlash = moduleName.lastIndexOf('/');
+                if (lastSlash >= 0) moduleName = moduleName.substring(lastSlash + 1);
+                if (moduleName.endsWith(".slang")) moduleName = moduleName.substring(0, moduleName.length() - 6);
+
+                return system.loadMaterialFromModule(
+                    key.getName(), moduleName, configBuilder.build());
+            } else {
+                String shaderSource;
+                try (InputStream in = assetManager.locateAsset(new AssetKey<>(materialDefPath)).openStream()) {
+                    shaderSource = new String(in.readAllBytes(), StandardCharsets.UTF_8);
+                }
+                return system.loadMaterialFromSource(
+                    key.getName(), shaderSource, configBuilder.build());
+            }
+        } catch (Exception e) {
+            throw new IOException("Failed to compile Slang material: " + key, e);
+        }
     }
 
     private void parseParameter(Material material, String line,

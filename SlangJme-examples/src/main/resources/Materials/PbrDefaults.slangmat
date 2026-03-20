@@ -1,0 +1,8 @@
+SlangMaterial {
+    MaterialDef: Shaders/ComposablePBR.slang
+
+    Specialize: CookTorranceBRDF
+    Specialize: FlatNormal
+
+    Vector3 baseColor: 0.5 0.5 0.5
+}

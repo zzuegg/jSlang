@@ -1,0 +1,3 @@
+SlangMaterial : Materials/PbrDefaults.slangmat {
+    Vector3 baseColor: 0.9 0.1 0.1
+}
